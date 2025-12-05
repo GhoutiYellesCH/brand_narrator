@@ -12,8 +12,7 @@ const plans = [
   {
     name: 'Free',
     price: '$0',
-    priceMonthly: '$0',
-    priceYearly: '$0',
+    priceMonthly: 0,
     description: 'Get a taste of our platform, on us.',
     features: [
       '1 Brand Story Generation',
@@ -27,8 +26,7 @@ const plans = [
   {
     name: 'Pro',
     price: '$49',
-    priceMonthly: '$49',
-    priceYearly: '$490',
+    priceMonthly: 49,
     description: 'For startups ready to scale their narrative.',
     features: [
       'Unlimited Brand Stories',
@@ -44,8 +42,7 @@ const plans = [
   {
     name: 'Enterprise',
     price: 'Custom',
-    priceMonthly: 'Custom',
-    priceYearly: 'Custom',
+    priceMonthly: null,
     description: 'Tailored solutions for established brands.',
     features: [
       'Everything in Pro',
@@ -107,10 +104,15 @@ export function PricingPage() {
               <CardDescription>{plan.description}</CardDescription>
               <div className="flex items-baseline gap-2 pt-4">
                 <span className="text-4xl font-bold">
-                  {plan.name === 'Custom' ? 'Custom' : (isYearly ? `$${(parseInt(plan.price.substring(1)) * 10)}` : plan.price)}
+                  {plan.price === 'Custom' 
+                    ? 'Custom' 
+                    : isYearly 
+                      ? `$${Math.round(plan.priceMonthly! * 12 * 0.8)}` 
+                      : plan.price
+                  }
                 </span>
                 <span className="text-muted-foreground">
-                  {plan.name !== 'Custom' && (isYearly ? '/year' : '/month')}
+                  {plan.price !== 'Custom' && (isYearly ? '/year' : '/month')}
                 </span>
               </div>
             </CardHeader>

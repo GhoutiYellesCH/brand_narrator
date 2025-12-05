@@ -4,18 +4,21 @@
 import { z } from 'zod';
 import { getFirebase } from '@/firebase/server';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 const { auth: adminAuth } = getFirebase();
 
-async function getUserIdFromIdToken(idToken: string): Promise<string | null> {
-    if (!idToken) {
-        return null;
-    }
+async function getUserIdFromServerSession(): Promise<string | null> {
     try {
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        const sessionCookie = cookies().get('__session')?.value;
+        if (!sessionCookie) {
+            console.log('Session cookie not found.');
+            return null;
+        }
+        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
-        console.error('Error verifying ID token in server action:', error);
+        console.error('Error verifying session cookie in server action:', error);
         return null;
     }
 }
@@ -26,30 +29,27 @@ const CreateInvoiceSchema = z.object({
   price: z.number(),
   packageName: z.string(),
   tokens: z.number(),
-  idToken: z.string().min(1, 'ID token is required.'),
 });
 
 export async function createAndRedirectToNowPaymentsInvoice(
   formData: FormData
 ) {
+  const userId = await getUserIdFromServerSession();
+  if (!userId) {
+    throw new Error('You must be logged in to create an invoice.');
+  }
+
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
     packageName: formData.get('packageName') as string,
     tokens: parseInt(formData.get('tokens') as string, 10),
-    idToken: formData.get('idToken') as string,
   });
 
   if (!validatedFields.success) {
-    // This will likely only happen if the form is manipulated client-side
     throw new Error('Invalid invoice data.');
   }
   
-  const { price, packageName, tokens, idToken } = validatedFields.data;
-
-  const userId = await getUserIdFromIdToken(idToken);
-  if (!userId) {
-    throw new Error('You must be logged in to create an invoice.');
-  }
+  const { price, packageName, tokens } = validatedFields.data;
 
   const apiKey = process.env.NOWPAYMENTS_API_KEY;
 
@@ -94,7 +94,6 @@ export async function createAndRedirectToNowPaymentsInvoice(
     }
   } catch (error: any) {
     console.error('Error creating NOWPayments invoice:', error);
-    // In a real app, you might want to redirect to an error page
     throw new Error(error.message || 'An unexpected error occurred during payment processing.');
   }
 }

@@ -288,9 +288,12 @@ export async function createNowPaymentsInvoice(
 
     const invoice = await response.json();
 
+    const { firestore: serverFirestore } = getFirebase();
     // Optionally, save the pending payment transaction to your database
     // Note: this uses a placeholder userId, a real implementation would use the authenticated user's ID
-    const transactionRef = doc(collection(firestore, 'transactions'));
+    const transactionsCollection = collection(serverFirestore, 'transactions');
+    const transactionRef = doc(transactionsCollection);
+
     await setDoc(transactionRef, {
       transactionId: transactionRef.id,
       nowPaymentsInvoiceId: invoice.id,

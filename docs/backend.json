@@ -29,9 +29,9 @@
           "description": "Timestamp indicating the last time the user logged in.",
           "format": "date-time"
         },
-        "activeSubscriptionId": {
-          "type": "string",
-          "description": "Reference to Subscription. (Relationship: User 1:1 Subscription)"
+        "tokens": {
+          "type": "number",
+          "description": "The number of AI tokens the user has available."
         }
       },
       "required": [
@@ -41,116 +41,11 @@
         "createdAt"
       ]
     },
-    "Subscription": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Subscription",
-      "type": "object",
-      "description": "Represents a user's subscription plan and payment status.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the subscription."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to User. (Relationship: User 1:1 Subscription)"
-        },
-        "planName": {
-          "type": "string",
-          "description": "Name of the subscription plan (e.g., Basic, Premium)."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "Date when the subscription started.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "Date when the subscription expires.",
-          "format": "date-time"
-        },
-        "paymentMethod": {
-          "type": "string",
-          "description": "Payment method used for the subscription (e.g., credit card, crypto)."
-        },
-        "paymentTransactionId": {
-          "type": "string",
-          "description": "Reference to PaymentTransaction. (Relationship: Subscription 1:1 PaymentTransaction)"
-        },
-        "status": {
-          "type": "string",
-          "description": "Subscription status (e.g., active, inactive, pending)."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "planName",
-        "startDate",
-        "endDate",
-        "paymentMethod",
-        "status"
-      ]
-    },
-    "PaymentTransaction": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PaymentTransaction",
-      "type": "object",
-      "description": "Represents a payment transaction processed via NOWPayments.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the payment transaction."
-        },
-        "subscriptionId": {
-          "type": "string",
-          "description": "Reference to Subscription. (Relationship: Subscription 1:1 PaymentTransaction)"
-        },
-        "paymentId": {
-          "type": "string",
-          "description": "The payment ID returned by NOWPayments."
-        },
-        "payinAddress": {
-          "type": "string",
-          "description": "The cryptocurrency address where the payment was sent."
-        },
-        "payoutAddress": {
-          "type": "string",
-          "description": "The cryptocurrency address where the payment was sent."
-        },
-        "paymentStatus": {
-          "type": "string",
-          "description": "The status of the payment (e.g., confirmed, sending, waiting, finished, failed, refunded)."
-        },
-        "paymentCurrency": {
-          "type": "string",
-          "description": "The cryptocurrency or fiat currency used for payment."
-        },
-        "paymentAmount": {
-          "type": "number",
-          "description": "The amount paid in the payment currency."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp indicating when the payment transaction was created.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "subscriptionId",
-        "paymentId",
-        "paymentStatus",
-        "paymentCurrency",
-        "paymentAmount",
-        "createdAt"
-      ]
-    },
     "BrandStory": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "BrandStory",
       "type": "object",
-      "description": "Represents the generated brand story for a user's startup.",
+      "description": "Represents the generated brand story and all related inputs for a user's startup.",
       "properties": {
         "id": {
           "type": "string",
@@ -168,24 +63,99 @@
           "type": "string",
           "description": "The generated narrative content of the brand story."
         },
+        "companyName": {
+          "type": "string",
+          "description": "The name of the company."
+        },
+        "foundingStory": {
+          "type": "string",
+          "description": "How and when the company was founded."
+        },
+        "problemToSolve": {
+          "type": "string",
+          "description": "The problem the company set out to solve."
+        },
+        "ahaMoment": {
+          "type": "string",
+          "description": "The original inspiration or 'aha' moment."
+        },
+        "foundingTeam": {
+          "type": "string",
+          "description": "The co-founders and their roles."
+        },
+        "founderValues": {
+          "type": "string",
+          "description": "Personal values that drove the founders."
+        },
+        "mission": {
+          "type": "string",
+          "description": "The company's mission or purpose."
+        },
+        "vision": {
+          "type": "string",
+          "description": "The long-term vision for the company."
+        },
+        "values": {
+          "type": "string",
+          "description": "The core company values."
+        },
+        "products": {
+          "type": "string",
+          "description": "Description of the products or services offered."
+        },
+        "uniqueProblem": {
+          "type": "string",
+          "description": "The unique problems the products/services solve."
+        },
+        "valueProposition": {
+          "type": "string",
+          "description": "A one-sentence value proposition."
+        },
+        "idealCustomer": {
+          "type": "string",
+          "description": "Description of the ideal customer."
+        },
+        "customerPainPoints": {
+          "type": "string",
+          "description": "Pain points the target audience faces."
+        },
+        "customerFeeling": {
+          "type": "string",
+          "description": "How customers feel after using the product/service."
+        },
+        "competitors": {
+          "type": "string",
+          "description": "Main competitors or alternative solutions."
+        },
+        "differentiation": {
+          "type": "string",
+          "description": "How the company's offering is different."
+        },
+        "storyConversation": {
+          "type": "string",
+          "description": "Transcript of the conversational story gathering session."
+        },
+        "additionalInfo": {
+          "type": "string",
+          "description": "Any other relevant information."
+        },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp indicating when the brand story was created.",
+          "description": "Timestamp when the brand story was created.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp indicating when the brand story was last updated.",
+          "description": "Timestamp when the brand story was last updated.",
           "format": "date-time"
         }
       },
       "required": [
         "id",
         "userId",
-        "title",
-        "content",
-        "createdAt",
-        "updatedAt"
+        "companyName",
+        "mission",
+        "values"
       ]
     },
     "SocialMediaPost": {
@@ -459,52 +429,10 @@
             }
           ]
         }
-      },
-      {
-        "path": "/users/{userId}/subscriptions/{subscriptionId}",
-        "definition": {
-          "entityName": "Subscription",
-          "schema": {
-            "$ref": "#/backend/entities/Subscription"
-          },
-          "description": "Stores subscription details for the user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "subscriptionId",
-              "description": "The unique identifier for the subscription."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/subscriptions/{subscriptionId}/paymentTransactions/{paymentTransactionId}",
-        "definition": {
-          "entityName": "PaymentTransaction",
-          "schema": {
-            "$ref": "#/backend/entities/PaymentTransaction"
-          },
-          "description": "Stores payment transactions for a subscription.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "subscriptionId",
-              "description": "The unique identifier for the subscription."
-            },
-            {
-              "name": "paymentTransactionId",
-              "description": "The unique identifier for the payment transaction."
-            }
-          ]
-        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data and their associated brand stories, social media posts, AI prompts, content analytics, subscriptions, and payment transactions are organized in a hierarchical manner under the `/users/{userId}` collection. This approach provides clear ownership and simplifies security rules. Subscriptions and payment transactions are separated out into dedicated subcollections to facilitate secure querying and management of subscription statuses and payment histories. This design avoids the use of `get()` calls in security rules, promoting atomic operations and simplifies debugging. The structure also explicitly addresses the need for easy listing of user-owned entities, thus fulfilling the QAPs requirement. Denormalization is not explicitly required as all data is user-owned and path-based. This inherently provides authorization independence. The structure also supports invariants such as ownership (via the path) and timestamps."
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data and their associated brand stories, social media posts, AI prompts, and content analytics are organized in a hierarchical manner under the `/users/{userId}` collection. This approach provides clear ownership and simplifies security rules. The User entity now includes a `tokens` field for the new payment system. The `BrandStory` entity has been expanded to include all fields from the comprehensive questionnaire, and the `storyConversation` field to store chat history. This ensures all user-specific data is centrally located and easily accessible for AI processing. The previous `Subscription` and `PaymentTransaction` collections have been removed as they are no longer needed with the token-based model. This design avoids the use of `get()` calls in security rules, promoting atomic operations and simplifying debugging."
   }
 }
+
+    

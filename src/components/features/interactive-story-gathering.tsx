@@ -1,14 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect, useTransition } from 'react';
-import { Bot, User, CornerDownLeft, Loader2 } from 'lucide-react';
+import { useState, useRef, useEffect, useTransition, useMemo } from 'react';
+import { Bot, User, CornerDownLeft, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { getAiStoryResponse } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 interface Message {
   id: string;
@@ -25,10 +27,32 @@ export function InteractiveStoryGathering() {
     },
   ]);
   const [input, setInput] = useState('');
-  const [conversationHistory, setConversationHistory] = useState('');
   const [isPending, startTransition] = useTransition();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  const brandStoryRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid, 'brandStories', 'default');
+  }, [firestore, user?.uid]);
+
+  const { data: brandStory, isLoading: isStoryLoading } = useDoc<any>(brandStoryRef);
+
+  // This state will hold the definitive conversation history from Firestore
+  const [conversationHistory, setConversationHistory] = useState('');
+
+  useEffect(() => {
+    // When brandStory data loads, update the conversation history state
+    if (brandStory?.storyConversation) {
+      setConversationHistory(brandStory.storyConversation);
+      // Optional: If you want to populate the chat with historical messages,
+      // you would parse `brandStory.storyConversation` and set `messages` state.
+      // This is a more complex UI task, so for now we just load it for the AI.
+    }
+  }, [brandStory]);
+
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -41,7 +65,7 @@ export function InteractiveStoryGathering() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || !user) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -52,14 +76,15 @@ export function InteractiveStoryGathering() {
     setInput('');
     
     startTransition(async () => {
-      const result = await getAiStoryResponse(input, conversationHistory);
+      const result = await getAiStoryResponse(input, conversationHistory, 'default');
       if (result.error) {
         toast({
             variant: "destructive",
             title: "An error occurred",
             description: result.error,
         });
-        // Optionally remove the user message or add an error message to the chat
+        // Revert message on error
+        setMessages(prev => prev.slice(0, -1));
       } else if(result.aiResponse && result.updatedConversationHistory) {
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -67,13 +92,22 @@ export function InteractiveStoryGathering() {
           content: result.aiResponse,
         };
         setMessages(prev => [...prev, aiMessage]);
+        // The definitive history is now the one returned by the server action
         setConversationHistory(result.updatedConversationHistory);
       }
     });
   };
 
+  const isLoading = isUserLoading || isStoryLoading;
+
   return (
     <div className="flex flex-col h-full bg-card rounded-xl border">
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+      <>
       <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
         <div className="space-y-6">
           {messages.map((message, index) => (
@@ -132,22 +166,26 @@ export function InteractiveStoryGathering() {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Tell me about your startup..."
+            placeholder={user ? "Tell me about your startup..." : "Please log in to chat"}
             className="pr-16 text-base"
-            disabled={isPending}
+            disabled={isPending || !user}
             aria-label="Your response to the AI"
           />
           <Button
             type="submit"
             size="icon"
             className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-10"
-            disabled={isPending || !input.trim()}
+            disabled={isPending || !input.trim() || !user}
             aria-label="Send message"
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CornerDownLeft className="h-4 w-4" />}
           </Button>
         </form>
       </div>
+       </>
+      )}
     </div>
   );
 }
+
+    

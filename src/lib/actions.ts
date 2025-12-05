@@ -1,9 +1,18 @@
 'use server';
 
 import { z } from 'zod';
+import { revalidatePath } from 'next/cache';
+import { getAuth } from 'firebase/auth';
 import {
-  interactiveStoryGathering
-} from '@/ai/flows/interactive-story-gathering';
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  collection,
+  serverTimestamp,
+  increment,
+} from 'firebase/firestore';
+import { interactiveStoryGathering } from '@/ai/flows/interactive-story-gathering';
 import {
   type GenerateAiPromptsInput,
   generateAiPrompts,
@@ -12,31 +21,61 @@ import {
   type GenerateBrandStoryInput,
   generateBrandStory,
 } from '@/ai/flows/generate-brand-story';
+import { getFirebase } from '@/firebase/server';
 
+const { firestore } = getFirebase();
+
+async function checkAndDeductTokens(userId: string, amount: number): Promise<void> {
+  const userRef = doc(firestore, 'users', userId);
+  const userDoc = await getDoc(userRef);
+  const userData = userDoc.data();
+
+  if (!userData || userData.tokens < amount) {
+    throw new Error('Insufficient tokens. Please purchase more to continue.');
+  }
+
+  await updateDoc(userRef, {
+    tokens: increment(-amount),
+  });
+}
 
 // Interactive Story Gathering Action
-const StoryStateSchema = z.object({
-  messages: z.array(
-    z.object({
-      id: z.string(),
-      role: z.enum(['user', 'assistant']),
-      content: z.string(),
-    })
-  ),
-  error: z.string().optional(),
-});
-export type StoryState = z.infer<typeof StoryStateSchema>;
+export async function getAiStoryResponse(
+  userInput: string,
+  conversationHistory: string,
+  brandStoryId: string
+) {
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
 
-export async function getAiStoryResponse(userInput: string, conversationHistory: string) {
+  if (!userId) {
+    return { error: 'You must be logged in to use this feature.' };
+  }
+
   try {
+    await checkAndDeductTokens(userId, 1); // Deduct 1 token per message
+
     const response = await interactiveStoryGathering({
       userInput,
       conversationHistory,
     });
-    return { aiResponse: response.aiResponse, updatedConversationHistory: response.updatedConversationHistory };
-  } catch (error) {
+
+    // Save the updated conversation history to Firestore non-blockingly
+    if (brandStoryId) {
+      const storyRef = doc(firestore, 'users', userId, 'brandStories', brandStoryId);
+      updateDoc(storyRef, { storyConversation: response.updatedConversationHistory }).catch(
+        (e) => console.error('Failed to save conversation history:', e)
+      );
+    }
+
+    revalidatePath('/story-gathering');
+    return {
+      aiResponse: response.aiResponse,
+      updatedConversationHistory: response.updatedConversationHistory,
+    };
+  } catch (error: any) {
     console.error(error);
-    return { error: 'Failed to get a response from the AI. Please try again.' };
+    return { error: error.message || 'Failed to get a response from the AI.' };
   }
 }
 
@@ -68,12 +107,20 @@ const BrandStoryFormSchema = z.object({
   differentiation: z.string().optional(),
   storyConversation: z.string().optional(),
   additionalInfo: z.string().optional(),
+  brandStoryId: z.string(), // To know which document to update
 });
 
 export async function generateBrandStoryAction(
   prevState: BrandStoryState,
   formData: FormData
 ): Promise<BrandStoryState> {
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
+
+  if (!userId) {
+    return { error: 'You must be logged in to use this feature.' };
+  }
+
   const validatedFields = BrandStoryFormSchema.safeParse(
     Object.fromEntries(formData.entries())
   );
@@ -85,12 +132,34 @@ export async function generateBrandStoryAction(
   }
 
   try {
-    const input: GenerateBrandStoryInput = validatedFields.data;
-    const result = await generateBrandStory(input);
+    await checkAndDeductTokens(userId, 50); // Deduct 50 tokens for story generation
+
+    const { brandStoryId, ...input } = validatedFields.data;
+    const result = await generateBrandStory(input as GenerateBrandStoryInput);
+
+    // Save the generated story and inputs to Firestore
+    const storyRef = doc(firestore, 'users', userId, 'brandStories', brandStoryId);
+    await setDoc(
+      storyRef,
+      {
+        ...input,
+        userId,
+        content: result.brandStory,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    
+    revalidatePath('/brand-story');
+    revalidatePath('/dashboard'); // Revalidate user token display
     return { brandStory: result.brandStory };
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    return { error: 'Failed to generate brand story. The AI model may be temporarily unavailable.' };
+    return {
+      error:
+        error.message ||
+        'Failed to generate brand story. The AI model may be temporarily unavailable.',
+    };
   }
 }
 
@@ -104,35 +173,55 @@ const PromptGeneratorStateSchema = z.object({
 export type PromptGeneratorState = z.infer<typeof PromptGeneratorStateSchema>;
 
 const PromptGeneratorFormSchema = z.object({
-    brandDescription: z.string().min(10, 'Brand description must be at least 10 characters.'),
-    targetAudience: z.string().min(3, 'Target audience is required.'),
-    contentGoal: z.string().min(3, 'Content goal is required.'),
-    platform: z.string().min(3, 'AI Platform is required.'),
+  brandDescription: z.string().min(10, 'Brand description must be at least 10 characters.'),
+  targetAudience: z.string().min(3, 'Target audience is required.'),
+  contentGoal: z.string().min(3, 'Content goal is required.'),
+  platform: z.string().min(3, 'AI Platform is required.'),
 });
 
 export async function generateAiPromptsAction(
   prevState: PromptGeneratorState,
   formData: FormData
 ): Promise<PromptGeneratorState> {
-    const validatedFields = PromptGeneratorFormSchema.safeParse({
-        brandDescription: formData.get('brandDescription'),
-        targetAudience: formData.get('targetAudience'),
-        contentGoal: formData.get('contentGoal'),
-        platform: formData.get('platform'),
-      });
-    
-      if (!validatedFields.success) {
-        return {
-          fieldErrors: validatedFields.error.flatten().fieldErrors,
-        };
-      }
+  const auth = getAuth();
+  const userId = auth.currentUser?.uid;
+
+  if (!userId) {
+    return { error: 'You must be logged in to use this feature.' };
+  }
+
+  const validatedFields = PromptGeneratorFormSchema.safeParse({
+    brandDescription: formData.get('brandDescription'),
+    targetAudience: formData.get('targetAudience'),
+    contentGoal: formData.get('contentGoal'),
+    platform: formData.get('platform'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
 
   try {
-    const input: GenerateAiPromptsInput = validatedFields.data;
+    await checkAndDeductTokens(userId, 5); // Deduct 5 tokens per prompt
+
+    const brandStoryRef = collection(firestore, 'users', userId, 'brandStories');
+    const brandStorySnap = await getDoc(doc(brandStoryRef));
+    const brandStoryData = brandStorySnap.data();
+
+    const input: GenerateAiPromptsInput = {
+      ...validatedFields.data,
+      brandDescription: brandStoryData?.content || validatedFields.data.brandDescription,
+    };
+
     const result = await generateAiPrompts(input);
+    revalidatePath('/dashboard'); // Revalidate user token display
     return { aiPrompt: result.aiPrompt, usageInstructions: result.usageInstructions };
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    return { error: 'Failed to generate AI prompts. Please try again.' };
+    return { error: error.message || 'Failed to generate AI prompts. Please try again.' };
   }
 }
+
+    

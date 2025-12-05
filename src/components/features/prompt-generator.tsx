@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState, useEffect, useMemo } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Card,
@@ -24,7 +24,8 @@ import { generateAiPromptsAction, type PromptGeneratorState } from '@/lib/action
 import { Loader2, Sparkles, Copy, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Input } from '../ui/input';
-import { useState } from 'react';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 const initialState: PromptGeneratorState = {};
 
@@ -38,7 +39,7 @@ function SubmitButton() {
         </>
       ) : (
         <>
-          <Sparkles className="mr-2 h-4 w-4" /> Generate Prompt
+          <Sparkles className="mr-2 h-4 w-4" /> Generate Prompt (5 Tokens)
         </>
       )}
     </Button>
@@ -64,6 +65,27 @@ function CopyButton({ textToCopy }: { textToCopy: string }) {
 export function PromptGenerator() {
   const [state, formAction] = useActionState(generateAiPromptsAction, initialState);
   const [platform, setPlatform] = useState('');
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const brandStoryRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid, 'brandStories', 'default');
+  }, [firestore, user?.uid]);
+
+  const { data: brandStory } = useDoc<any>(brandStoryRef);
+
+  const [brandDescription, setBrandDescription] = useState('');
+
+  useEffect(() => {
+    if (brandStory?.content) {
+      setBrandDescription(brandStory.content);
+    } else if (brandStory?.companyName) {
+      // Fallback if content is not yet generated
+      setBrandDescription(`This is a company called ${brandStory.companyName}. Mission: ${brandStory.mission}. Values: ${brandStory.values}`);
+    }
+  }, [brandStory]);
+
 
   return (
     <div className="grid gap-8 md:grid-cols-2">
@@ -71,19 +93,21 @@ export function PromptGenerator() {
         <CardHeader>
           <CardTitle className="font-headline">AI Prompt Generator</CardTitle>
           <CardDescription>
-            Describe your goal, and we'll generate an optimized prompt for your favorite AI platform.
+            Describe your goal, and we'll generate an optimized prompt for your favorite AI platform, using your saved brand story as context.
           </CardDescription>
         </CardHeader>
         <form action={formAction}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="brandDescription">Brand Description</Label>
+              <Label htmlFor="brandDescription">Brand Description (auto-filled from your story)</Label>
               <Textarea
                 id="brandDescription"
                 name="brandDescription"
-                placeholder="Briefly describe your brand, its mission, and values."
+                placeholder="Your brand story content will be automatically used here."
                 className="min-h-24"
                 required
+                value={brandDescription}
+                onChange={(e) => setBrandDescription(e.target.value)}
               />
               {state.fieldErrors?.brandDescription && <p className="text-sm text-destructive">{state.fieldErrors.brandDescription}</p>}
             </div>
@@ -123,7 +147,7 @@ export function PromptGenerator() {
                 {state.fieldErrors?.platform && <p className="text-sm text-destructive">{state.fieldErrors.platform}</p>}
             </div>
             {state.error && (
-                <Alert variant="destructive">
+                <Alert variant="destructive" className="mt-6">
                     <AlertTitle>Error</AlertTitle>
                     <AlertDescription>{state.error}</AlertDescription>
                 </Alert>
@@ -183,3 +207,5 @@ export function PromptGenerator() {
     </div>
   );
 }
+
+    

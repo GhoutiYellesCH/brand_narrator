@@ -72,7 +72,9 @@ service cloud.firestore {
      * field remains unchanged.
      */
     function isUpdatingOwnProfile(userId) {
-      return isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      // Allow user to update njihov own profile, but don't let them change their token count directly.
+      let isChangingTokens = request.resource.data.tokens != resource.data.tokens;
+      return isExistingOwner(userId) && request.resource.data.id == resource.data.id && !isChangingTokens;
     }
 
     /**
@@ -109,36 +111,6 @@ service cloud.firestore {
       allow list: if false;
       allow create: if isCreatingOwnProfile(userId);
       allow update: if isUpdatingOwnProfile(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages user subscriptions.
-     * @path /users/{userId}/subscriptions/{subscriptionId}
-     * @allow (create, get, list, update, delete) The user managing their own subscription records.
-     * @deny (get) A user trying to access another user's subscription.
-     * @principle Enforces document ownership for all operations within a user's private subcollection.
-     */
-    match /users/{userId}/subscriptions/{subscriptionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isCreatingOwnedDoc(userId);
-      allow update: if isUpdatingOwnedDoc(userId);
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Manages payment transactions for a user's subscription.
-     * @path /users/{userId}/subscriptions/{subscriptionId}/paymentTransactions/{paymentTransactionId}
-     * @allow (create, get, list, update, delete) The user managing their own payment history.
-     * @deny (get) A user trying to access another user's payment history.
-     * @principle Secures nested user data by verifying ownership based on the path.
-     */
-    match /users/{userId}/subscriptions/{subscriptionId}/paymentTransactions/{paymentTransactionId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
@@ -203,3 +175,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

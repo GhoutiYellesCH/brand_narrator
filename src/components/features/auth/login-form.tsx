@@ -16,7 +16,10 @@ import {
   createUserWithEmailAndPassword,
   signInAnonymously,
   type AuthError,
+  type User as FirebaseUser,
 } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 import { Loader2 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
@@ -32,6 +35,7 @@ export function LoginForm() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
@@ -48,6 +52,36 @@ export function LoginForm() {
       router.replace('/dashboard');
     }
   }, [user, isUserLoading, router]);
+
+  const createUserProfile = async (firebaseUser: FirebaseUser, isAnonymous = false) => {
+    const userRef = doc(firestore, 'users', firebaseUser.uid);
+    const userProfile = {
+      id: firebaseUser.uid,
+      email: firebaseUser.email || `guest_${firebaseUser.uid}@example.com`,
+      name: firebaseUser.displayName || (isAnonymous ? 'Anonymous Guest' : 'New User'),
+      createdAt: serverTimestamp(),
+      lastLogin: serverTimestamp(),
+      tokens: 100, // Initial token allocation
+    };
+    await setDoc(userRef, userProfile, { merge: true });
+
+    // Also create an initial empty brand story
+    const brandStoryRef = doc(firestore, 'users', firebaseUser.uid, 'brandStories', 'default');
+    await setDoc(brandStoryRef, {
+      id: 'default',
+      userId: firebaseUser.uid,
+      companyName: '',
+      mission: '',
+      values: '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  };
+
+  const handleAuthSuccess = async (firebaseUser: FirebaseUser, isAnonymous = false) => {
+    await createUserProfile(firebaseUser, isAnonymous);
+    // The useEffect will handle redirection
+  };
 
   const handleAuthError = (error: AuthError) => {
     setIsLoading(false);
@@ -73,11 +107,11 @@ export function LoginForm() {
     setAuthError(null);
     try {
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, data.email, data.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        await handleAuthSuccess(userCredential.user);
       } else {
         await signInWithEmailAndPassword(auth, data.email, data.password);
       }
-      // The useEffect will handle redirection
     } catch (error) {
       handleAuthError(error as AuthError);
     }
@@ -87,8 +121,8 @@ export function LoginForm() {
     setIsLoading(true);
     setAuthError(null);
     try {
-      await signInAnonymously(auth);
-      // The useEffect will handle redirection
+      const userCredential = await signInAnonymously(auth);
+      await handleAuthSuccess(userCredential.user, true);
     } catch (error) {
       handleAuthError(error as AuthError);
     }
@@ -150,3 +184,5 @@ export function LoginForm() {
     </Card>
   );
 }
+
+    

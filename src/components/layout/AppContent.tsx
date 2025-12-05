@@ -1,7 +1,8 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { Sidebar, SidebarProvider, SidebarBody, SidebarNav, SidebarNavItem, SidebarHeader, SidebarTrigger, SidebarContent, SidebarFooter } from '@/components/layout/sidebar';
 import { Logo } from '@/components/logo';
 import {
@@ -12,6 +13,7 @@ import {
   Home,
   LogOut,
   CreditCard,
+  Diamond,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getAuth, signOut } from 'firebase/auth';
@@ -24,6 +26,14 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const { user, isUserLoading } = useUser();
   const auth = getAuth();
+  const firestore = useFirestore();
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user?.uid]);
+
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<any>(userProfileRef);
 
   useEffect(() => {
     if (!isUserLoading && !user && !publicRoutes.includes(pathname)) {
@@ -36,8 +46,10 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     router.push('/login');
   };
 
-  if (publicRoutes.includes(pathname) || isUserLoading) {
-    if (isUserLoading) {
+  const isLoading = isUserLoading || (user && isProfileLoading);
+
+  if (publicRoutes.includes(pathname) || isLoading) {
+    if (isLoading && !publicRoutes.includes(pathname)) {
         return (
             <div className="flex h-screen w-screen items-center justify-center bg-background">
               <div className="flex flex-col items-center gap-4 animate-pulse">
@@ -48,7 +60,6 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     }
     return <>{children}</>;
   }
-
 
   return (
     <SidebarProvider>
@@ -75,9 +86,21 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
                 Prompt Generator
               </SidebarNavItem>
               <SidebarNavItem href="/pricing" icon={<CreditCard />}>
-                Pricing
+                Get Tokens
               </SidebarNavItem>
             </SidebarNav>
+             <div className="px-4 mt-4">
+                <div className="flex flex-col gap-2 rounded-lg border bg-muted/50 p-4 text-sm">
+                    <div className="font-semibold text-foreground">Your AI Tokens</div>
+                    <div className="flex items-center gap-2 text-2xl font-bold text-primary">
+                        <Diamond className="h-6 w-6" />
+                        <span>{userProfile?.tokens?.toLocaleString() || 0}</span>
+                    </div>
+                     <Button size="sm" variant="secondary" onClick={() => router.push('/pricing')}>
+                        Buy More
+                    </Button>
+                </div>
+            </div>
           </SidebarBody>
           <SidebarFooter>
             <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start">
@@ -97,3 +120,5 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     </SidebarProvider>
   );
 }
+
+    

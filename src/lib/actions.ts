@@ -53,6 +53,8 @@ const BrandStoryFormSchema = z.object({
   origins: z.string().min(10, 'Origins story should be at least 10 characters.'),
   mission: z.string().min(10, 'Mission statement should be at least 10 characters.'),
   values: z.string().min(10, 'Core values should be at least 10 characters.'),
+  storyConversation: z.string().optional(),
+  additionalInfo: z.string().optional(),
 });
 
 export async function generateBrandStoryAction(
@@ -64,6 +66,8 @@ export async function generateBrandStoryAction(
     origins: formData.get('origins'),
     mission: formData.get('mission'),
     values: formData.get('values'),
+    storyConversation: formData.get('storyConversation'),
+    additionalInfo: formData.get('additionalInfo'),
   });
 
   if (!validatedFields.success) {

@@ -65,7 +65,7 @@ export function BrandStoryGenerator() {
               {state.fieldErrors?.companyName && <p className="text-sm text-destructive">{state.fieldErrors.companyName}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="origins">Origins</Label>
+              <Label htmlFor="origins">Company Origins</Label>
               <Textarea
                 id="origins"
                 name="origins"
@@ -76,7 +76,7 @@ export function BrandStoryGenerator() {
               {state.fieldErrors?.origins && <p className="text-sm text-destructive">{state.fieldErrors.origins}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="mission">Mission</Label>
+              <Label htmlFor="mission">Company Mission</Label>
               <Textarea
                 id="mission"
                 name="mission"
@@ -87,7 +87,7 @@ export function BrandStoryGenerator() {
                {state.fieldErrors?.mission && <p className="text-sm text-destructive">{state.fieldErrors.mission}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="values">Values</Label>
+              <Label htmlFor="values">Core Values</Label>
               <Textarea
                 id="values"
                 name="values"
@@ -96,6 +96,26 @@ export function BrandStoryGenerator() {
                 required
               />
                {state.fieldErrors?.values && <p className="text-sm text-destructive">{state.fieldErrors.values}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="storyConversation">Story Gathering Chat</Label>
+              <Textarea
+                id="storyConversation"
+                name="storyConversation"
+                placeholder="Paste the conversation from the 'Story Gathering' chat here to provide more context."
+                className="min-h-32"
+              />
+               {state.fieldErrors?.storyConversation && <p className="text-sm text-destructive">{state.fieldErrors.storyConversation}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="additionalInfo">Additional Information (e.g., Company Plan)</Label>
+              <Textarea
+                id="additionalInfo"
+                name="additionalInfo"
+                placeholder="Paste any other relevant documents or details here, like your business plan, market analysis, etc."
+                className="min-h-48"
+              />
+               {state.fieldErrors?.additionalInfo && <p className="text-sm text-destructive">{state.fieldErrors.additionalInfo}</p>}
             </div>
             {state.error && (
                 <Alert variant="destructive">

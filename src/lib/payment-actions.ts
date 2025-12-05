@@ -3,9 +3,7 @@
 
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
-
-// This is a client-facing server action. It will now delegate the secure
-// invoice creation to a dedicated API route.
+import { cookies } from 'next/headers';
 
 const CreateInvoiceSchema = z.object({
   price: z.number(),
@@ -28,18 +26,15 @@ export async function createAndRedirectToNowPaymentsInvoice(
 
   const { price, packageName, tokens } = validatedFields.data;
   
-  // The fetch call now uses an absolute URL, which is best practice when a server action
-  // calls an API route. The NEXT_PUBLIC_BASE_URL must be set in your environment.
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  if (!baseUrl) {
-    throw new Error("Application base URL is not configured. Cannot create payment invoice.");
-  }
-
   try {
-    const response = await fetch(`${baseUrl}/api/nowpayments-invoice`, {
+    // When a server action calls an API route, it should use a relative path.
+    // The 'fetch' call also needs to forward the cookies to the API route so the
+    // user's session can be verified.
+    const response = await fetch('/api/nowpayments-invoice', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Cookie': cookies().toString(), // Forward cookies to the API route
       },
       body: JSON.stringify({ price, packageName, tokens }),
     });

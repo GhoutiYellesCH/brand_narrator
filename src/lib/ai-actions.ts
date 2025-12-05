@@ -29,6 +29,10 @@ async function getUserIdFromServerSession(): Promise<string | null> {
         const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
         return decodedToken.uid;
     } catch (error) {
+        // This is expected if the cookie is invalid or expired.
+        if ((error as any).code === 'auth/session-cookie-expired' || (error as any).code === 'auth/session-cookie-revoked') {
+          return null;
+        }
         console.error('Error verifying session cookie in server action:', error);
         return null;
     }

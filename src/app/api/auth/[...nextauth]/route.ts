@@ -1,42 +1,48 @@
+
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { getFirebase } from '@/firebase/server';
-import { initializeFirebase } from '@/firebase'; // Client-side init
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, getAuth } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, getAuth as getClientAuth } from 'firebase/auth';
+import { initializeApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
+// This file runs on the server, so we use the Admin SDK
 const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
-const { firebaseApp, firestore, auth: clientAuth } = initializeFirebase();
+
+// We need a temporary client app instance ON THE SERVER to handle sign-in,
+// as the Admin SDK cannot sign in users with passwords.
+const tempClientApp = initializeApp(firebaseConfig, 'temp-client-auth-app-for-next-auth');
+const clientAuth = getClientAuth(tempClientApp);
 
 async function getOrCreateUserProfile(uid: string, email: string | null, isAnonymous: boolean, name?: string | null) {
-    const userRef = doc(serverFirestore, 'users', uid);
-    const userSnap = await getDoc(userRef);
+    const userRef = serverFirestore.collection('users').doc(uid);
+    const userSnap = await userRef.get();
 
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
         const userProfile = {
             id: uid,
             email: email || `guest_${uid}@example.com`,
             name: name || (isAnonymous ? 'Anonymous Guest' : 'New User'),
-            createdAt: serverTimestamp(),
-            lastLogin: serverTimestamp(),
+            createdAt: new Date(),
+            lastLogin: new Date(),
             tokens: 100,
         };
-        await setDoc(userRef, userProfile);
+        await userRef.set(userProfile);
 
-        const brandStoryRef = doc(serverFirestore, 'users', uid, 'brandStories', 'default');
-        await setDoc(brandStoryRef, {
+        const brandStoryRef = serverFirestore.collection('users').doc(uid).collection('brandStories').doc('default');
+        await brandStoryRef.set({
             id: 'default',
             userId: uid,
             companyName: '',
             mission: '',
             values: '',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
+            createdAt: new Date(),
+            updatedAt: new Date(),
         }, { merge: true });
 
         return userProfile;
     } else {
-        await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
+        await userRef.update({ lastLogin: new Date() });
         return userSnap.data();
     }
 }
@@ -97,6 +103,7 @@ export const authOptions: NextAuthOptions = {
             switch (e.code) {
                 case 'auth/user-not-found':
                 case 'auth/wrong-password':
+                case 'auth/invalid-credential':
                     throw new Error('Invalid email or password.');
                 case 'auth/email-already-in-use':
                     throw new Error('This email is already registered. Please sign in.');
@@ -122,7 +129,11 @@ export const authOptions: NextAuthOptions = {
 
         // Create a custom token for client-side Firebase auth
         if (token.id) {
-            token.firebaseToken = await adminAuth.createCustomToken(token.id as string);
+            try {
+                token.firebaseToken = await adminAuth.createCustomToken(token.id as string);
+            } catch (error) {
+                console.error("Error creating custom Firebase token:", error);
+            }
         }
 
         return token;
@@ -146,3 +157,4 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST, handler as auth };
+

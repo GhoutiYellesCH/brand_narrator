@@ -2,9 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase';
-import AppContent from '@/components/layout/AppContent';
-import { SessionProvider } from 'next-auth/react';
+import { Providers } from './providers';
 
 
 export const metadata: Metadata = {
@@ -30,13 +28,9 @@ export default function RootLayout({
           'antialiased font-body'
         )}
       >
-        <SessionProvider>
-          <FirebaseClientProvider>
-            <AppContent>
-              {children}
-            </AppContent>
-          </FirebaseClientProvider>
-        </SessionProvider>
+        <Providers>
+          {children}
+        </Providers>
         <Toaster />
       </body>
     </html>

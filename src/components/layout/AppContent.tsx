@@ -16,6 +16,7 @@ import {
   User as UserIcon,
   Diamond,
   CalendarDays,
+  Link as LinkIcon, // Renamed to avoid conflict with Next.js Link
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useEffect } from 'react';
@@ -87,6 +88,9 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               </SidebarNavItem>
               <SidebarNavItem href="/prompt-generator" icon={<Sparkles />}>
                 Prompt Generator
+              </SidebarNavItem>
+              <SidebarNavItem href="/integrations" icon={<LinkIcon />}>
+                Integrations
               </SidebarNavItem>
               <SidebarNavItem href="/pricing" icon={<CreditCard />}>
                 Get Tokens

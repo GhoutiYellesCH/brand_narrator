@@ -4,9 +4,11 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { getFirebase } from '@/firebase/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { UserProfile } from '@/lib/definitions';
-import { getAuth as getAdminAuth, DecodedIdToken } from 'firebase-admin/auth';
-
-// This is a server-side only file.
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signInAnonymously,
+} from 'firebase/auth';
 
 // Helper function to get or create a user profile in Firestore
 async function getOrCreateUserProfile(userId: string, email: string | null, name: string | null): Promise<UserProfile | undefined> {
@@ -48,47 +50,50 @@ export const authOptions: NextAuthOptions = {
         if (!credentials) {
           throw new Error("Something went wrong.");
         }
-        
-        const { app } = getFirebase();
-        const adminAuth = getAdminAuth(app);
+
+        const { auth: clientAuth } = getFirebase();
 
         try {
-            let userRecord;
+          let userCredential;
+
+          if (credentials.isAnonymous === 'true') {
+            userCredential = await signInAnonymously(clientAuth);
+          } else if (credentials.isSignUp === 'true') {
+            userCredential = await createUserWithEmailAndPassword(clientAuth, credentials.email, credentials.password);
+          } else {
+            userCredential = await signInWithEmailAndPassword(clientAuth, credentials.email, credentials.password);
+          }
+          
+          const user = userCredential.user;
+
+          if (user) {
+            const profile = await getOrCreateUserProfile(user.uid, user.email, user.displayName);
             
-            if (credentials.isAnonymous === 'true') {
-                // For anonymous, we just need a UID. We'll create one if needed.
-                 userRecord = await adminAuth.createUser({});
-            } else if (credentials.isSignUp === 'true') {
-                userRecord = await adminAuth.createUser({
-                    email: credentials.email,
-                    password: credentials.password,
-                    displayName: credentials.email.split('@')[0], // a default name
-                });
-            } else {
-                // For regular sign-in, we just need to verify the user exists.
-                // The password check is implicitly handled by the client-side SDK.
-                // Here, we just need to get the user record to proceed.
-                userRecord = await adminAuth.getUserByEmail(credentials.email);
+            if (!profile) {
+              throw new Error('Could not create or retrieve user profile.');
             }
 
-            if (userRecord) {
-                const profile = await getOrCreateUserProfile(userRecord.uid, userRecord.email || null, userRecord.displayName || null);
-                
-                if (!profile) {
-                    throw new Error('Could not create or retrieve user profile.');
-                }
+            return { 
+                id: user.uid, 
+                email: profile.email,
+                name: profile.name,
+            };
+          }
 
-                return { 
-                    id: userRecord.uid, 
-                    email: profile.email,
-                    name: profile.name,
-                };
-            }
-            return null;
+          return null;
         } catch (error: any) {
-            // Firebase Admin SDK errors
-            console.error("Firebase Admin SDK error in authorize:", error);
-            throw new Error(error.message || "Authentication failed.");
+            console.error("Firebase Auth error in authorize:", error);
+            // Translate Firebase error codes to user-friendly messages
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    throw new Error('No user found with this email.');
+                case 'auth/wrong-password':
+                    throw new Error('Incorrect password.');
+                case 'auth/email-already-in-use':
+                    throw new Error('This email is already in use.');
+                default:
+                    throw new Error(error.message || "Authentication failed.");
+            }
         }
       },
     }),
@@ -98,30 +103,14 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
-        const { app } = getFirebase();
-        const adminAuth = getAdminAuth(app);
-
-        if (user) { // This is the user object from the authorize function
+        if (user) {
             token.id = user.id;
         }
-
-        if (token.id) {
-            try {
-                // Create a custom token for the Firebase client SDK
-                token.firebaseToken = await adminAuth.createCustomToken(token.id as string);
-            } catch (error) {
-                console.error("Error creating custom Firebase token:", error);
-            }
-        }
-        
         return token;
     },
     async session({ session, token }) {
         if (session.user && token.id) {
             session.user.id = token.id as string;
-        }
-        if (token.firebaseToken) {
-            session.firebaseToken = token.firebaseToken as string;
         }
         return session;
     },
@@ -135,3 +124,5 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST, handler as auth };
+
+    

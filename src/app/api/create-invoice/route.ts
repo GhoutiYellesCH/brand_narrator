@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const userId = await getUserIdFromIdToken(idToken);
 
     if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized: Invalid token.' }, { status: 401 });
     }
 
     let reqBody;

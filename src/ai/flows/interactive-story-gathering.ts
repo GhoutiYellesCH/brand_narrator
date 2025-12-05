@@ -27,7 +27,7 @@ export type InteractiveStoryGatheringInput = z.infer<
   typeof InteractiveStoryGatheringInputSchema
 >;
 
-const InteractiveStoryGatheringOutputSchema = z.object({
+const InteractiveStoryGatheringOutputSchema = z..object({
   aiResponse: z
     .string()
     .describe('The AI response, either asking for more information or confirming story details.'),
@@ -50,6 +50,11 @@ const prompt = ai.definePrompt({
   name: 'interactiveStoryGatheringPrompt',
   input: {schema: InteractiveStoryGatheringInputSchema},
   output: {schema: InteractiveStoryGatheringOutputSchema},
+  model: 'googleai/gemini-2.5-flash',
+  config: {
+    // Pass the API key directly to the model
+    auth: {apiKey: process.env.GEMINI_API_KEY},
+  },
   prompt: `You are a brand narrative expert guiding a founder through the process of telling their startup's story. Your goal is to gather key information about the company's origins, mission, and values through conversation. Build on the conversation history if it exists. Ask one question at a time, and try to extract specific details.
 
   Previous conversation:

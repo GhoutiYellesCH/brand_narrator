@@ -35,6 +35,11 @@ const prompt = ai.definePrompt({
   name: 'generateAiPromptsPrompt',
   input: {schema: GenerateAiPromptsInputSchema},
   output: {schema: GenerateAiPromptsOutputSchema},
+  model: 'googleai/gemini-2.5-flash',
+  config: {
+    // Pass the API key directly to the model
+    auth: {apiKey: process.env.GEMINI_API_KEY},
+  },
   prompt: `You are an AI prompt engineer specializing in crafting prompts for various AI platforms to generate marketing content.
 
   Based on the provided brand description, target audience, content goal, and AI platform, generate an AI-optimized prompt and instructions on how to use it effectively.

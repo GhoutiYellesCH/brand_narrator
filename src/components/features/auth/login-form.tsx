@@ -14,8 +14,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, initializeFirebase } from '@/firebase';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -47,7 +45,7 @@ export function LoginForm() {
       redirect: false,
       email: data.email,
       password: data.password,
-      isSignUp: isSignUp,
+      isSignUp: String(isSignUp),
     });
 
     setIsLoading(false);
@@ -69,7 +67,7 @@ export function LoginForm() {
     setAuthError(null);
     const result = await signIn('credentials', {
         redirect: false,
-        isAnonymous: true,
+        isAnonymous: 'true',
     });
     setIsLoading(false);
     if (result?.error) {

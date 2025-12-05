@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { cn } from '@/lib/utils';
 import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
 import { useFormStatus } from 'react-dom';
+import { useUser } from '@/firebase';
+import { useEffect, useState } from 'react';
 
 const tokenPackages = [
   {
@@ -55,7 +57,7 @@ const tokenPackages = [
   },
 ];
 
-function BuyButton({ planName, cta, isPopular }: { planName: string; cta: string, isPopular: boolean }) {
+function BuyButton({ planName, cta, isPopular, disabled }: { planName: string; cta: string, isPopular: boolean, disabled: boolean }) {
   const { pending, data } = useFormStatus();
   const isSubmittingForThisPlan = pending && data?.get('packageName') === planName;
 
@@ -64,7 +66,7 @@ function BuyButton({ planName, cta, isPopular }: { planName: string; cta: string
       className="w-full"
       variant={isPopular ? 'default' : 'outline'}
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
     >
       {isSubmittingForThisPlan ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -78,6 +80,20 @@ function BuyButton({ planName, cta, isPopular }: { planName: string; cta: string
 
 
 export function PricingPage() {
+  const { user, isUserLoading } = useUser();
+  const [idToken, setIdToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function getToken() {
+        if(user) {
+            const token = await user.getIdToken();
+            setIdToken(token);
+        }
+    }
+    getToken();
+  }, [user])
+
+  const isButtonDisabled = isUserLoading || !user || !idToken;
 
   return (
     <div className="flex flex-col items-center space-y-8">
@@ -100,6 +116,7 @@ export function PricingPage() {
               <input type="hidden" name="price" value={plan.priceUSD} />
               <input type="hidden" name="packageName" value={plan.name} />
               <input type="hidden" name="tokens" value={plan.tokens} />
+              {idToken && <input type="hidden" name="idToken" value={idToken} />}
 
               <CardHeader className="relative">
                 {plan.popular && (
@@ -125,7 +142,7 @@ export function PricingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                 <BuyButton planName={plan.name} cta={plan.cta} isPopular={plan.popular} />
+                 <BuyButton planName={plan.name} cta={plan.cta} isPopular={plan.popular} disabled={isButtonDisabled} />
               </CardFooter>
             </form>
           </Card>
@@ -137,6 +154,7 @@ export function PricingPage() {
             <span>All payments are securely processed via NOWPayments. We accept major cryptocurrencies like USDT, BTC, ETH.</span>
         </p>
         <p>Tokens are valid for one year from the date of purchase and are non-refundable.</p>
+        {!user && !isUserLoading && <p className="font-semibold text-destructive">You must be logged in to purchase tokens.</p>}
       </div>
     </div>
   );

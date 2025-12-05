@@ -4,21 +4,18 @@
 import { z } from 'zod';
 import { getFirebase } from '@/firebase/server';
 import { redirect } from 'next/navigation';
-import { cookies } from 'next/headers';
 
 const { auth: adminAuth } = getFirebase();
 
-async function getUserIdFromServerSession(): Promise<string | null> {
+async function getUserIdFromIdToken(idToken: string): Promise<string | null> {
+    if (!idToken) {
+        return null;
+    }
     try {
-        const sessionCookie = cookies().get('__session')?.value;
-        if (!sessionCookie) {
-            console.log('Session cookie not found.');
-            return null;
-        }
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
         return decodedToken.uid;
     } catch (error) {
-        console.error('Error verifying session cookie in server action:', error);
+        console.error('Error verifying ID token in server action:', error);
         return null;
     }
 }
@@ -29,30 +26,30 @@ const CreateInvoiceSchema = z.object({
   price: z.number(),
   packageName: z.string(),
   tokens: z.number(),
+  idToken: z.string().min(1, 'ID token is required.'),
 });
 
 export async function createAndRedirectToNowPaymentsInvoice(
   formData: FormData
 ) {
-  const userId = await getUserIdFromServerSession();
-  if (!userId) {
-    // This should ideally redirect to a login page with an error
-    // For now, we'll throw an error which will be caught by an error boundary.
-    throw new Error('You must be logged in to create an invoice.');
-  }
-
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
     packageName: formData.get('packageName') as string,
     tokens: parseInt(formData.get('tokens') as string, 10),
+    idToken: formData.get('idToken') as string,
   });
 
   if (!validatedFields.success) {
+    // This will likely only happen if the form is manipulated client-side
     throw new Error('Invalid invoice data.');
   }
   
-  const { price, packageName, tokens } = validatedFields.data;
+  const { price, packageName, tokens, idToken } = validatedFields.data;
 
+  const userId = await getUserIdFromIdToken(idToken);
+  if (!userId) {
+    throw new Error('You must be logged in to create an invoice.');
+  }
 
   const apiKey = process.env.NOWPAYMENTS_API_KEY;
 

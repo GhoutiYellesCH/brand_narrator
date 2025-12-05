@@ -13,7 +13,6 @@ async function getUserIdFromServerSession(): Promise<string | null> {
     try {
         const sessionCookie = cookies().get('__session')?.value;
         if (!sessionCookie) {
-            console.log('Session cookie not found.');
             return null;
         }
         const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);

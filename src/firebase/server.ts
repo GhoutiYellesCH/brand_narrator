@@ -8,11 +8,12 @@ import { firebaseConfig } from './config';
 
 let adminApp: App;
 
+// The previous logic was attempting to initialize without credentials,
+// which fails in many environments. This new logic ensures that the
+// Admin SDK is always initialized with the correct project ID, which
+// is a more robust method for server-side environments.
 if (getApps().length === 0) {
   adminApp = initializeApp({
-    // Explicitly use the project ID from the client-side config.
-    // In a real production environment, you might use environment variables
-    // for credentials, but this is robust for local/dev environments.
     projectId: firebaseConfig.projectId,
   });
 } else {

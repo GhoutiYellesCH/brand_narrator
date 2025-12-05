@@ -14,6 +14,7 @@ import {
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
 import { headers } from 'next/headers';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
 
@@ -29,7 +30,11 @@ async function getUserIdFromServerSession(): Promise<string | null> {
         return null;
       }
     }
-    return 'placeholder-user-id';
+    // Return a placeholder for local development if no auth header is present
+    if (process.env.NODE_ENV === 'development') {
+        return 'placeholder-user-id';
+    }
+    return null;
 }
 
 
@@ -40,7 +45,6 @@ async function checkAndDeductTokens(userId: string, amount: number, details: { c
   }
   const userRef = serverFirestore.doc(`users/${userId}`);
   
-  // Use a transaction to safely read and write
   await serverFirestore.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
     const userData = userDoc.data();
@@ -51,14 +55,9 @@ async function checkAndDeductTokens(userId: string, amount: number, details: { c
     
     let cost = amount;
 
-    // Special handling for chat messages
     if (details.chatMessageCount !== undefined) {
       const newTotalMessages = (userData.chatMessagesSent || 0) + 1;
-      if (newTotalMessages % 10 === 0) {
-        cost = 1; // Deduct 1 token every 10 messages
-      } else {
-        cost = 0; // No cost for this message
-      }
+      cost = (newTotalMessages % 10 === 0) ? 1 : 0;
       transaction.update(userRef, { chatMessagesSent: newTotalMessages });
     }
 
@@ -67,7 +66,6 @@ async function checkAndDeductTokens(userId: string, amount: number, details: { c
     }
 
     if (cost > 0) {
-      const { FieldValue } = await import('firebase-admin/firestore');
       transaction.update(userRef, { tokens: FieldValue.increment(-cost) });
     }
   });
@@ -92,7 +90,6 @@ export async function getAiStoryResponse(
   }
 
   try {
-    // Pass the message count to the token deduction logic
     await checkAndDeductTokens(userId, 0, { chatMessageCount }); 
 
     const response = await interactiveStoryGathering({
@@ -100,9 +97,7 @@ export async function getAiStoryResponse(
       conversationHistory,
     });
 
-    // Save the updated conversation history to Firestore non-blockingly
     const storyRef = serverFirestore.doc(`users/${userId}/brandStories/${brandStoryId}`);
-    const { FieldValue } = await import('firebase-admin/firestore');
     storyRef.update({ 
         storyConversation: response.updatedConversationHistory,
         updatedAt: FieldValue.serverTimestamp(),
@@ -174,15 +169,13 @@ export async function generateBrandStoryAction(
   }
 
   try {
-    await checkAndDeductTokens(userId, 10); // Deduct 10 tokens for story generation
+    await checkAndDeductTokens(userId, 10);
 
     const { brandStoryId, ...input } = validatedFields.data;
     const result = await generateBrandStory(input as GenerateBrandStoryInput);
 
-    // Save the generated story and inputs to Firestore
     const storyRef = serverFirestore.doc(`users/${userId}/brandStories/${brandStoryId}`);
-    const { FieldValue } = await import('firebase-admin/firestore');
-
+    
     await storyRef.set(
       {
         ...input,
@@ -194,7 +187,7 @@ export async function generateBrandStoryAction(
     );
     
     revalidatePath('/brand-story');
-    revalidatePath('/dashboard'); // Revalidate user token display
+    revalidatePath('/dashboard'); 
     return { brandStory: result.brandStory };
   } catch (error: any) {
     console.error(error);
@@ -246,7 +239,7 @@ export async function generateAiPromptsAction(
   }
 
   try {
-    await checkAndDeductTokens(userId, 5); // Deduct 5 tokens per prompt
+    await checkAndDeductTokens(userId, 5); 
 
     const brandStoryRef = serverFirestore.doc(`users/${userId}/brandStories/default`);
     const brandStorySnap = await brandStoryRef.get();
@@ -258,7 +251,7 @@ export async function generateAiPromptsAction(
     };
 
     const result = await generateAiPrompts(input);
-    revalidatePath('/dashboard'); // Revalidate user token display
+    revalidatePath('/dashboard');
     return { aiPrompt: result.aiPrompt, usageInstructions: result.usageInstructions };
   } catch (error: any) {
     console.error(error);
@@ -276,9 +269,11 @@ const CreateInvoiceSchema = z.object({
 export async function createNowPaymentsInvoice(
   formData: FormData
 ): Promise<{ invoiceUrl?: string; error?: string }> {
-  // This uses a placeholder user ID. In a real application, you would
-  // have a robust session management system to get the real user ID.
-  const userId = `user_${Date.now()}`;
+  const userId = await getUserIdFromServerSession();
+  
+  if (!userId) {
+    return { error: 'You must be logged in to create an invoice.' };
+  }
 
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
@@ -316,7 +311,6 @@ export async function createNowPaymentsInvoice(
         order_description: `${packageName} - ${tokens} Tokens for user ${userId}`,
         success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?payment=success`,
         cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?payment=cancelled`,
-        // We can pass metadata to link the payment back to the user
         ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/nowpayments-ipn`,
       }),
     });
@@ -328,10 +322,58 @@ export async function createNowPaymentsInvoice(
     }
 
     const invoice = await response.json();
-
+    
     return { invoiceUrl: invoice.invoice_url };
   } catch (error: any) {
     console.error('Error creating NOWPayments invoice:', error);
     return { error: error.message || 'An unexpected error occurred.' };
+  }
+}
+
+// User Profile Update Action
+const UserProfileStateSchema = z.object({
+    success: z.boolean().optional(),
+    error: z.string().optional(),
+    fieldErrors: z.record(z.string()).optional(),
+});
+export type UserProfileState = z.infer<typeof UserProfileStateSchema>;
+
+const UserProfileFormSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters.'),
+});
+
+export async function updateUserProfileAction(
+  prevState: UserProfileState,
+  formData: FormData
+): Promise<UserProfileState> {
+  const userId = await getUserIdFromServerSession();
+
+  if (!userId) {
+    return { error: 'You must be logged in to update your profile.' };
+  }
+
+  const validatedFields = UserProfileFormSchema.safeParse({
+    name: formData.get('name'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      fieldErrors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+  
+  try {
+    const userRef = serverFirestore.doc(`users/${userId}`);
+    await userRef.update({
+      name: validatedFields.data.name,
+    });
+    
+    revalidatePath('/account');
+    revalidatePath('/dashboard');
+    return { success: true };
+
+  } catch (error: any) {
+    console.error('Error updating user profile:', error);
+    return { error: 'Failed to update your profile. Please try again.' };
   }
 }

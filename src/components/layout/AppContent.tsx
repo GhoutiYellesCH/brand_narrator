@@ -13,6 +13,7 @@ import {
   LogOut,
   CreditCard,
   Diamond,
+  User,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getAuth, signOut } from 'firebase/auth';
@@ -83,6 +84,9 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               </SidebarNavItem>
               <SidebarNavItem href="/pricing" icon={<CreditCard />}>
                 Get Tokens
+              </SidebarNavItem>
+              <SidebarNavItem href="/account" icon={<User />}>
+                My Account
               </SidebarNavItem>
             </SidebarNav>
              <div className="px-4 mt-4">

@@ -62,7 +62,7 @@ export function PasswordChangeForm() {
                 <CardDescription>Enter a new password for your account.</CardDescription>
             </CardHeader>
             <form action={formAction}>
-                <input type="hidden" name="userId" value={user?.uid} />
+                <input type="hidden" name="userId" value={user?.uid || ''} />
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="password">New Password</Label>

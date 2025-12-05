@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useEffect, useState, useMemo } from 'react';
@@ -63,7 +64,7 @@ export function BrandStoryGenerator() {
 
   const { data: brandStory, isLoading: isStoryLoading } = useDoc<any>(brandStoryRef);
 
-  const [formValues, setFormValues] = useState<any>({});
+  const [formValues, setFormValues] = useState<any>(brandStory || {});
 
   useEffect(() => {
     if (brandStory) {
@@ -271,5 +272,3 @@ function BrandStorySkeleton() {
       </div>
     );
   }
-
-    

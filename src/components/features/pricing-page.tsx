@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
 import { useFormStatus } from 'react-dom';
 import { useUser } from '@/firebase';
+import { useState, useEffect } from 'react';
 
 const tokenPackages = [
   {
@@ -80,8 +81,15 @@ function BuyButton({ planName, cta, isPopular, disabled }: { planName: string; c
 
 export function PricingPage() {
   const { user, isUserLoading } = useUser();
+  const [idToken, setIdToken] = useState('');
 
-  const isButtonDisabled = isUserLoading || !user;
+  useEffect(() => {
+    if (user) {
+      user.getIdToken().then(setIdToken);
+    }
+  }, [user]);
+
+  const isButtonDisabled = isUserLoading || !user || !idToken;
 
   return (
     <div className="flex flex-col items-center space-y-8">
@@ -104,6 +112,7 @@ export function PricingPage() {
               <input type="hidden" name="price" value={plan.priceUSD} />
               <input type="hidden" name="packageName" value={plan.name} />
               <input type="hidden" name="tokens" value={plan.tokens} />
+              <input type="hidden" name="idToken" value={idToken} />
              
               <CardHeader className="relative">
                 {plan.popular && (

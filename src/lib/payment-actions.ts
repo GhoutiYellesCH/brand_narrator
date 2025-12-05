@@ -12,21 +12,20 @@ const CreateInvoiceSchema = z.object({
   price: z.number(),
   packageName: z.string(),
   tokens: z.number(),
+  idToken: z.string().min(1, 'ID token is required.'),
 });
 
 
-async function getUserIdFromServerSession(): Promise<string | null> {
+async function getUserIdFromIdToken(idToken: string): Promise<string | null> {
+    if (!idToken) {
+      return null;
+    }
     try {
-        const sessionCookie = cookies().get('__session')?.value;
-        if (!sessionCookie) {
-            console.log('Server Action: Session cookie not found.');
-            return null;
-        }
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
-        return decodedToken.uid;
+      const decodedToken = await adminAuth.verifyIdToken(idToken);
+      return decodedToken.uid;
     } catch (error) {
-        console.error('Server Action: Error verifying session cookie:', error);
-        return null;
+      console.error('Server Action: Error verifying ID token:', error);
+      return null;
     }
 }
 
@@ -34,23 +33,25 @@ async function getUserIdFromServerSession(): Promise<string | null> {
 export async function createAndRedirectToNowPaymentsInvoice(
   formData: FormData
 ) {
-  const userId = await getUserIdFromServerSession();
   
-  if (!userId) {
-    throw new Error('You must be logged in to create an invoice.');
-  }
-
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
     packageName: formData.get('packageName') as string,
     tokens: parseInt(formData.get('tokens') as string, 10),
+    idToken: formData.get('idToken') as string,
   });
 
   if (!validatedFields.success) {
-    throw new Error('Invalid invoice data.');
+    console.error('Invalid invoice data:', validatedFields.error.flatten().fieldErrors);
+    throw new Error('Invalid invoice data provided.');
   }
   
-  const { price, packageName, tokens } = validatedFields.data;
+  const { price, packageName, tokens, idToken } = validatedFields.data;
+
+  const userId = await getUserIdFromIdToken(idToken);
+  if (!userId) {
+    throw new Error('You must be logged in to create an invoice.');
+  }
   
   const apiKey = process.env.NOWPAYMENTS_API_KEY;
 
@@ -76,7 +77,7 @@ export async function createAndRedirectToNowPaymentsInvoice(
         order_description: `${packageName} - ${tokens} Tokens for user ${userId}`,
         success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?payment=success`,
         cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?payment=cancelled`,
-        ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/nowpayments-ipn`,
+        // IPN is handled in a separate API route.
       }),
     });
 
@@ -98,4 +99,3 @@ export async function createAndRedirectToNowPaymentsInvoice(
     throw new Error(error.message || 'An unexpected error occurred during payment processing.');
   }
 }
-

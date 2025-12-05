@@ -13,6 +13,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const InteractiveStoryGatheringInputSchema = z.object({
   userInput: z
@@ -51,11 +52,7 @@ const prompt = ai.definePrompt({
   name: 'interactiveStoryGatheringPrompt',
   input: {schema: InteractiveStoryGatheringInputSchema},
   output: {schema: InteractiveStoryGatheringOutputSchema},
-  model: 'googleai/gemini-2.5-flash',
-  config: {
-    // Pass the API key directly to the model
-    auth: {apiKey: process.env.GEMINI_API_KEY},
-  },
+  model: googleAI('gemini-2.5-flash'),
   prompt: `You are a brand narrative expert guiding a founder through the process of telling their startup's story. Your goal is to gather key information about the company's origins, mission, and values through conversation. Build on the conversation history if it exists. Ask one question at a time, and try to extract specific details.
 
   Previous conversation:

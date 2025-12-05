@@ -47,9 +47,6 @@ export function InteractiveStoryGathering() {
     // When brandStory data loads, update the conversation history state
     if (brandStory?.storyConversation) {
       setConversationHistory(brandStory.storyConversation);
-      // Optional: If you want to populate the chat with historical messages,
-      // you would parse `brandStory.storyConversation` and set `messages` state.
-      // This is a more complex UI task, so for now we just load it for the AI.
     }
   }, [brandStory]);
 
@@ -72,11 +69,12 @@ export function InteractiveStoryGathering() {
       role: 'user',
       content: input,
     };
+    const currentMessagesCount = messages.filter(m => m.role === 'user').length;
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     
     startTransition(async () => {
-      const result = await getAiStoryResponse(input, conversationHistory, brandStory.id);
+      const result = await getAiStoryResponse(input, conversationHistory, brandStory.id, currentMessagesCount);
       if (result.error) {
         toast({
             variant: "destructive",

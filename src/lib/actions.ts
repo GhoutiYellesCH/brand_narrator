@@ -13,50 +13,75 @@ import {
   generateBrandStory,
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
+import { headers } from 'next/headers';
 
 const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
 
-// This is a temporary placeholder for the user ID. In a real application,
-// this would be replaced with a robust session management solution
-// to get the authenticated user's ID on the server.
-const getUserId = async () => {
-    try {
-        // In a real app, you would get the user from the session/auth context
-        // For now, we use a placeholder to avoid breaking local dev
-        return 'placeholder-user-id';
-    } catch (e) {
-        console.warn("Could not get user. Falling back to placeholder. This is normal in local dev.", e);
-        return 'placeholder-user-id';
+async function getUserIdFromServerSession(): Promise<string | null> {
+    const authorization = headers().get('Authorization');
+    if (authorization?.startsWith('Bearer ')) {
+      const idToken = authorization.split('Bearer ')[1];
+      try {
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
+        return decodedToken.uid;
+      } catch (error) {
+        console.error('Error verifying auth token:', error);
+        return null;
+      }
     }
+    return 'placeholder-user-id';
 }
 
-async function checkAndDeductTokens(userId: string, amount: number): Promise<void> {
+
+async function checkAndDeductTokens(userId: string, amount: number, details: { chatMessageCount?: number } = {}): Promise<void> {
   if (userId === 'placeholder-user-id') {
-      console.log(`DEV MODE: Skipping token deduction of ${amount} for placeholder user.`);
+      console.log(`DEV MODE: Skipping token deduction for placeholder user.`);
       return;
   }
   const userRef = serverFirestore.doc(`users/${userId}`);
-  const userDoc = await userRef.get();
-  const userData = userDoc.data();
+  
+  // Use a transaction to safely read and write
+  await serverFirestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    const userData = userDoc.data();
 
-  if (!userData || userData.tokens < amount) {
-    throw new Error('Insufficient tokens. Please purchase more to continue.');
-  }
+    if (!userData) {
+      throw new Error("User profile not found.");
+    }
+    
+    let cost = amount;
 
-  // Firestore Admin SDK uses FieldValue for increments
-  const { FieldValue } = await import('firebase-admin/firestore');
-  await userRef.update({
-    tokens: FieldValue.increment(-amount),
+    // Special handling for chat messages
+    if (details.chatMessageCount !== undefined) {
+      const newTotalMessages = (userData.chatMessagesSent || 0) + 1;
+      if (newTotalMessages % 10 === 0) {
+        cost = 1; // Deduct 1 token every 10 messages
+      } else {
+        cost = 0; // No cost for this message
+      }
+      transaction.update(userRef, { chatMessagesSent: newTotalMessages });
+    }
+
+    if (userData.tokens < cost) {
+      throw new Error('Insufficient tokens. Please purchase more to continue.');
+    }
+
+    if (cost > 0) {
+      const { FieldValue } = await import('firebase-admin/firestore');
+      transaction.update(userRef, { tokens: FieldValue.increment(-cost) });
+    }
   });
 }
+
 
 // Interactive Story Gathering Action
 export async function getAiStoryResponse(
   userInput: string,
   conversationHistory: string,
-  brandStoryId: string
+  brandStoryId: string,
+  chatMessageCount: number
 ) {
-  const userId = await getUserId();
+  const userId = await getUserIdFromServerSession();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -67,7 +92,8 @@ export async function getAiStoryResponse(
   }
 
   try {
-    await checkAndDeductTokens(userId, 1); // Deduct 1 token per message
+    // Pass the message count to the token deduction logic
+    await checkAndDeductTokens(userId, 0, { chatMessageCount }); 
 
     const response = await interactiveStoryGathering({
       userInput,
@@ -85,6 +111,7 @@ export async function getAiStoryResponse(
     );
 
     revalidatePath('/story-gathering');
+    revalidatePath('/dashboard');
     return {
       aiResponse: response.aiResponse,
       updatedConversationHistory: response.updatedConversationHistory,
@@ -130,7 +157,7 @@ export async function generateBrandStoryAction(
   prevState: BrandStoryState,
   formData: FormData
 ): Promise<BrandStoryState> {
-  const userId = await getUserId();
+  const userId = await getUserIdFromServerSession();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -147,7 +174,7 @@ export async function generateBrandStoryAction(
   }
 
   try {
-    await checkAndDeductTokens(userId, 50); // Deduct 50 tokens for story generation
+    await checkAndDeductTokens(userId, 10); // Deduct 10 tokens for story generation
 
     const { brandStoryId, ...input } = validatedFields.data;
     const result = await generateBrandStory(input as GenerateBrandStoryInput);
@@ -199,7 +226,7 @@ export async function generateAiPromptsAction(
   prevState: PromptGeneratorState,
   formData: FormData
 ): Promise<PromptGeneratorState> {
-  const userId = await getUserId();
+  const userId = await getUserIdFromServerSession();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -301,24 +328,6 @@ export async function createNowPaymentsInvoice(
     }
 
     const invoice = await response.json();
-
-    // Optionally, save the pending payment transaction to your database
-    // const transactionsCollection = serverFirestore.collection('transactions');
-    // const transactionRef = transactionsCollection.doc();
-    
-    // const { FieldValue } = await import('firebase-admin/firestore');
-
-    // await transactionRef.set({
-    //   transactionId: transactionRef.id,
-    //   nowPaymentsInvoiceId: invoice.id,
-    //   status: 'pending',
-    //   orderId: orderId,
-    //   price: price,
-    //   tokens: tokens,
-    //   userId: userId,
-    //   createdAt: FieldValue.serverTimestamp(),
-    // });
-
 
     return { invoiceUrl: invoice.invoice_url };
   } catch (error: any) {

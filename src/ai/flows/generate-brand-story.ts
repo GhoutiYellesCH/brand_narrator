@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const GenerateBrandStoryInputSchema = z.object({
   companyName: z.string().describe('The name of the company.'),
@@ -59,11 +60,7 @@ const prompt = ai.definePrompt({
   name: 'generateBrandStoryPrompt',
   input: {schema: GenerateBrandStoryInputSchema},
   output: {schema: GenerateBrandStoryOutputSchema},
-  model: 'googleai/gemini-2.5-flash',
-  config: {
-    // Pass the API key directly to the model
-    auth: {apiKey: process.env.GEMINI_API_KEY},
-  },
+  model: googleAI('gemini-2.5-flash'),
   prompt: `You are a world-class brand strategist and master storyteller. Your task is to synthesize all the provided information into a single, compelling, and emotionally resonant brand story for a startup named {{{companyName}}}.
 
 Your narrative should be structured like a classic story: introduce the characters (the founders), the problem they saw in the world (the conflict), the journey to the solution (the startup), and the vision for the future. Make the customer the hero of their own journey, with the brand as their trusted guide.

@@ -1,12 +1,13 @@
 'use client';
 
-import { Check, Bitcoin, Diamond, Loader2 } from 'lucide-react';
+import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useState, useTransition } from 'react';
 import { createNowPaymentsInvoice } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useFormStatus } from 'react-dom';
 
 const tokenPackages = [
   {
@@ -55,33 +56,43 @@ const tokenPackages = [
   },
 ];
 
+function BuyButton({ planName, cta, isPopular }: { planName: string; cta: string, isPopular: boolean }) {
+  const { pending, data } = useFormStatus();
+  const isSubmittingForThisPlan = pending && data?.get('packageName') === planName;
+
+  return (
+    <Button
+      className="w-full"
+      variant={isPopular ? 'default' : 'outline'}
+      type="submit"
+      disabled={pending}
+    >
+      {isSubmittingForThisPlan ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <Diamond className="mr-2 h-4 w-4" />
+      )}
+      {isSubmittingForThisPlan ? 'Processing...' : cta}
+    </Button>
+  );
+}
+
+
 export function PricingPage() {
-  const [isPending, startTransition] = useTransition();
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handlePayment = (packageName: string, price: number, tokens: number) => {
-    setSelectedPlan(packageName);
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.append('price', price.toString());
-      formData.append('packageName', packageName);
-      formData.append('tokens', tokens.toString());
+  const handleFormAction = async (formData: FormData) => {
+    const result = await createNowPaymentsInvoice(formData);
 
-      const result = await createNowPaymentsInvoice(formData);
-      
-      if (result.error) {
-        toast({
-          variant: 'destructive',
-          title: 'Payment Error',
-          description: result.error,
-        });
-        setSelectedPlan(null);
-      } else if (result.invoiceUrl) {
-        // Redirect to NOWPayments
-        window.location.href = result.invoiceUrl;
-      }
-    });
+    if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Payment Error',
+        description: result.error,
+      });
+    } else if (result.invoiceUrl) {
+      window.location.href = result.invoiceUrl;
+    }
   };
 
   return (
@@ -101,50 +112,44 @@ export function PricingPage() {
               'border-primary ring-2 ring-primary shadow-lg': plan.popular,
             })}
           >
-            <CardHeader className="relative">
-              {plan.popular && (
-                <div className="absolute top-0 right-4 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                  Most Popular
-                </div>
-              )}
-              <CardTitle className="font-headline">{plan.name}</CardTitle>
-              <CardDescription>{plan.description}</CardDescription>
-              <div className="flex items-baseline gap-2 pt-4">
-                <span className="text-4xl font-bold">${plan.priceUSD}</span>
-                <span className="text-muted-foreground">/ {plan.tokens.toLocaleString()} Tokens</span>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 space-y-4">
-              <ul className="space-y-3">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-2">
-                    <Check className="h-5 w-5 text-green-500" />
-                    <span className="text-sm text-muted-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button
-                className="w-full"
-                variant={plan.popular ? 'default' : 'outline'}
-                onClick={() => handlePayment(plan.name, plan.priceUSD, plan.tokens)}
-                disabled={isPending}
-              >
-                {isPending && selectedPlan === plan.name ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Diamond className="mr-2 h-4 w-4" />
+            <form action={handleFormAction}>
+              <input type="hidden" name="price" value={plan.priceUSD} />
+              <input type="hidden" name="packageName" value={plan.name} />
+              <input type="hidden" name="tokens" value={plan.tokens} />
+
+              <CardHeader className="relative">
+                {plan.popular && (
+                  <div className="absolute top-0 right-4 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                    Most Popular
+                  </div>
                 )}
-                {isPending && selectedPlan === plan.name ? 'Processing...' : plan.cta}
-              </Button>
-            </CardFooter>
+                <CardTitle className="font-headline">{plan.name}</CardTitle>
+                <CardDescription>{plan.description}</CardDescription>
+                <div className="flex items-baseline gap-2 pt-4">
+                  <span className="text-4xl font-bold">${plan.priceUSD}</span>
+                  <span className="text-muted-foreground">/ {plan.tokens.toLocaleString()} Tokens</span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1 space-y-4">
+                <ul className="space-y-3">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-center gap-2">
+                      <Check className="h-5 w-5 text-green-500" />
+                      <span className="text-sm text-muted-foreground">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+              <CardFooter>
+                 <BuyButton planName={plan.name} cta={plan.cta} isPopular={plan.popular} />
+              </CardFooter>
+            </form>
           </Card>
         ))}
       </div>
       <div className="text-center text-muted-foreground text-sm pt-4 max-w-2xl space-y-2">
         <p className="flex items-center justify-center gap-2">
-            <Bitcoin className="h-5 w-5" />
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Z"/><path d="M12 15.5v-1.87"/><path d="M12 10.12V8.25"/><path d="m7 12.38 1.4-1.4"/><path d="m15.6 13.78 1.4-1.4"/><path d="m7 15.12 1.4 1.4"/><path d="m15.6 10.72 1.4 1.4"/></svg>
             <span>All payments are securely processed via NOWPayments. We accept major cryptocurrencies like USDT, BTC, ETH.</span>
         </p>
         <p>Tokens are valid for one year from the date of purchase and are non-refundable.</p>

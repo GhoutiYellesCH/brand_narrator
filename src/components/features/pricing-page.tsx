@@ -5,9 +5,7 @@ import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useTransition } from 'react';
-import { createNowPaymentsInvoice } from '@/lib/payment-actions';
-import { useToast } from '@/hooks/use-toast';
+import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
 import { useFormStatus } from 'react-dom';
 
 const tokenPackages = [
@@ -80,24 +78,6 @@ function BuyButton({ planName, cta, isPopular }: { planName: string; cta: string
 
 
 export function PricingPage() {
-  const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-
-  const handleFormAction = (formData: FormData) => {
-    startTransition(async () => {
-      const result = await createNowPaymentsInvoice(formData);
-
-      if (result.error) {
-        toast({
-          variant: 'destructive',
-          title: 'Payment Error',
-          description: result.error,
-        });
-      } else if (result.invoiceUrl) {
-        window.location.href = result.invoiceUrl;
-      }
-    });
-  };
 
   return (
     <div className="flex flex-col items-center space-y-8">
@@ -116,7 +96,7 @@ export function PricingPage() {
               'border-primary ring-2 ring-primary shadow-lg': plan.popular,
             })}
           >
-            <form action={handleFormAction}>
+            <form action={createAndRedirectToNowPaymentsInvoice}>
               <input type="hidden" name="price" value={plan.priceUSD} />
               <input type="hidden" name="packageName" value={plan.name} />
               <input type="hidden" name="tokens" value={plan.tokens} />

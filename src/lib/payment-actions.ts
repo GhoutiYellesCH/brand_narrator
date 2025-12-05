@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getFirebase } from '@/firebase/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 const { auth: adminAuth } = getFirebase();
 
@@ -30,12 +31,14 @@ const CreateInvoiceSchema = z.object({
   tokens: z.number(),
 });
 
-export async function createNowPaymentsInvoice(
+export async function createAndRedirectToNowPaymentsInvoice(
   formData: FormData
-): Promise<{ invoiceUrl?: string; error?: string }> {
+) {
   const userId = await getUserIdFromServerSession();
   if (!userId) {
-    return { error: 'You must be logged in to create an invoice.' };
+    // This should ideally redirect to a login page with an error
+    // For now, we'll throw an error which will be caught by an error boundary.
+    throw new Error('You must be logged in to create an invoice.');
   }
 
   const validatedFields = CreateInvoiceSchema.safeParse({
@@ -45,7 +48,7 @@ export async function createNowPaymentsInvoice(
   });
 
   if (!validatedFields.success) {
-    return { error: 'Invalid invoice data.' };
+    throw new Error('Invalid invoice data.');
   }
   
   const { price, packageName, tokens } = validatedFields.data;
@@ -55,7 +58,7 @@ export async function createNowPaymentsInvoice(
 
   if (!apiKey) {
     console.error('NOWPayments API key is not configured.');
-    return { error: 'Payment service is not configured. Please contact support.' };
+    throw new Error('Payment service is not configured. Please contact support.');
   }
 
   try {
@@ -87,9 +90,14 @@ export async function createNowPaymentsInvoice(
 
     const invoice = await response.json();
     
-    return { invoiceUrl: invoice.invoice_url };
+    if (invoice.invoice_url) {
+      redirect(invoice.invoice_url);
+    } else {
+      throw new Error('Failed to retrieve invoice URL from payment provider.');
+    }
   } catch (error: any) {
     console.error('Error creating NOWPayments invoice:', error);
-    return { error: error.message || 'An unexpected error occurred.' };
+    // In a real app, you might want to redirect to an error page
+    throw new Error(error.message || 'An unexpected error occurred during payment processing.');
   }
 }

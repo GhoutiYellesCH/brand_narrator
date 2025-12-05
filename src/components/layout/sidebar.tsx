@@ -7,7 +7,7 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 interface SidebarContextProps {
   isOpen: boolean;
@@ -51,6 +51,7 @@ function MobileSidebar({ children }: { children: React.ReactNode }) {
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetContent side="left" className="p-0 bg-card border-r w-64">
+        <SheetTitle className="sr-only">Mobile Navigation Menu</SheetTitle>
         {children}
       </SheetContent>
     </Sheet>

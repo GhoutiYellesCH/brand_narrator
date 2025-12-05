@@ -1,13 +1,14 @@
 
 'use client';
 
-import { Check, Diamond } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useUser } from '@/firebase';
-import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
-
+import { useUser, useAuth } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 const tokenPackages = [
   {
@@ -58,9 +59,64 @@ const tokenPackages = [
 
 type Package = (typeof tokenPackages)[0];
 
-
 export function PricingPage() {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
+  const handleBuyClick = async (plan: Package) => {
+    if (!user || !auth) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Error',
+        description: 'You must be logged in to purchase tokens.',
+      });
+      return;
+    }
+
+    setIsProcessing(plan.name);
+
+    try {
+      const idToken = await user.getIdToken();
+      
+      const response = await fetch('/api/create-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          price: plan.priceUSD,
+          packageName: plan.name,
+          tokens: plan.tokens,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create payment invoice.');
+      }
+
+      if (result.invoiceUrl) {
+        router.push(result.invoiceUrl);
+      } else {
+        throw new Error('Could not retrieve payment URL.');
+      }
+    } catch (error: any) {
+      console.error('Failed to create invoice:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Payment Error',
+        description: error.message || 'An unexpected error occurred. Please try again.',
+      });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   const isButtonDisabled = isUserLoading || !user;
 
   return (
@@ -80,52 +136,51 @@ export function PricingPage() {
               'border-primary ring-2 ring-primary shadow-lg': plan.popular,
             })}
           >
-              <CardHeader className="relative">
-                {plan.popular && (
-                  <div className="absolute top-0 right-4 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    Most Popular
-                  </div>
-                )}
-                <CardTitle className="font-headline">{plan.name}</CardTitle>
-                <CardDescription>{plan.description}</CardDescription>
-                <div className="flex items-baseline gap-2 pt-4">
-                  <span className="text-4xl font-bold">${plan.priceUSD}</span>
-                  <span className="text-muted-foreground">/ {plan.tokens.toLocaleString()} Tokens</span>
+            <CardHeader className="relative">
+              {plan.popular && (
+                <div className="absolute top-0 right-4 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
+                  Most Popular
                 </div>
-              </CardHeader>
-              <CardContent className="flex-1 space-y-4">
-                <ul className="space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2">
-                      <Check className="h-5 w-5 text-green-500" />
-                      <span className="text-sm text-muted-foreground">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter>
-                 <form action={createAndRedirectToNowPaymentsInvoice} className="w-full">
-                    <input type="hidden" name="price" value={plan.priceUSD} />
-                    <input type="hidden" name="packageName" value={plan.name} />
-                    <input type="hidden" name="tokens" value={plan.tokens} />
-                    <Button
-                        type="submit"
-                        className="w-full"
-                        variant={plan.popular ? 'default' : 'outline'}
-                        disabled={isButtonDisabled}
-                    >
-                        <Diamond className="mr-2 h-4 w-4" />
-                        Buy Tokens
-                    </Button>
-                </form>
-              </CardFooter>
+              )}
+              <CardTitle className="font-headline">{plan.name}</CardTitle>
+              <CardDescription>{plan.description}</CardDescription>
+              <div className="flex items-baseline gap-2 pt-4">
+                <span className="text-4xl font-bold">${plan.priceUSD}</span>
+                <span className="text-muted-foreground">/ {plan.tokens.toLocaleString()} Tokens</span>
+              </div>
+            </CardHeader>
+            <CardContent className="flex-1 space-y-4">
+              <ul className="space-y-3">
+                {plan.features.map((feature) => (
+                  <li key={feature} className="flex items-center gap-2">
+                    <Check className="h-5 w-5 text-green-500" />
+                    <span className="text-sm text-muted-foreground">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+            <CardFooter>
+              <Button
+                onClick={() => handleBuyClick(plan)}
+                className="w-full"
+                variant={plan.popular ? 'default' : 'outline'}
+                disabled={isButtonDisabled || !!isProcessing}
+              >
+                {isProcessing === plan.name ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Diamond className="mr-2 h-4 w-4" />
+                )}
+                {isProcessing === plan.name ? 'Processing...' : 'Buy Tokens'}
+              </Button>
+            </CardFooter>
           </Card>
         ))}
       </div>
       <div className="text-center text-muted-foreground text-sm pt-4 max-w-2xl space-y-2">
         <p className="flex items-center justify-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Z"/><path d="M12 15.5v-1.87"/><path d="M12 10.12V8.25"/><path d="m7 12.38 1.4-1.4"/><path d="m15.6 13.78 1.4-1.4"/><path d="m7 15.12 1.4 1.4"/><path d="m15.6 10.72 1.4 1.4"/></svg>
-            <span>All payments are securely processed via NOWPayments. We accept major cryptocurrencies like USDT, BTC, ETH.</span>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M12 22a10 10 0 1 1 0-20 10 10 0 0 1 0 20Z"/><path d="M12 15.5v-1.87"/><path d="M12 10.12V8.25"/><path d="m7 12.38 1.4-1.4"/><path d="m15.6 13.78 1.4-1.4"/><path d="m7 15.12 1.4 1.4"/><path d="m15.6 10.72 1.4 1.4"/></svg>
+          <span>All payments are securely processed via NOWPayments. We accept major cryptocurrencies like USDT, BTC, ETH.</span>
         </p>
         <p>Tokens are valid for one year from the date of purchase and are non-refundable.</p>
         {!user && !isUserLoading && <p className="font-semibold text-destructive">You must be logged in to purchase tokens.</p>}

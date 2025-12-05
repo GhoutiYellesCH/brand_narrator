@@ -55,7 +55,7 @@ async function checkAndDeductTokens(userId: string, amount: number, details: { c
       } else {
         cost = 0;
       }
-      transaction.update(userRef, { chatMessagesSent: newTotalMessages });
+      transaction.update(userRef, { chatMessagesSent: FieldValue.increment(1) });
     }
 
     if (userData.tokens < cost) {
@@ -374,11 +374,6 @@ export async function updateUserProfileAction(
   
   const { name, userId } = validatedFields.data;
 
-  const sessionUserId = await getUserIdFromServerSession();
-  if (sessionUserId !== userId) {
-      return { error: 'You are not authorized to perform this action.' };
-  }
-
   if (!userId || userId === 'null' || userId === 'undefined') {
     return { error: 'You must be logged in to update your profile.' };
   }
@@ -433,11 +428,6 @@ export async function changePasswordAction(
 
     const { password, userId } = validatedFields.data;
 
-    const sessionUserId = await getUserIdFromServerSession();
-    if (sessionUserId !== userId) {
-        return { error: 'You are not authorized to perform this action.' };
-    }
-    
     try {
         await adminAuth.updateUser(userId, {
             password: password,

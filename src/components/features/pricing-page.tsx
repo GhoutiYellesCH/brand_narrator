@@ -1,10 +1,12 @@
 'use client';
 
-import { Check, Bitcoin, Diamond } from 'lucide-react';
+import { Check, Bitcoin, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { createNowPaymentsInvoice } from '@/lib/actions';
+import { useToast } from '@/hooks/use-toast';
 
 const tokenPackages = [
   {
@@ -48,18 +50,38 @@ const tokenPackages = [
       'Dedicated Support',
       'For multiple brands',
     ],
-cta: 'Buy Tokens',
+    cta: 'Buy Tokens',
     popular: false,
   },
 ];
 
 export function PricingPage() {
+  const [isPending, startTransition] = useTransition();
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const handlePayment = (packageName: string, price: number) => {
-    // Placeholder for NOWPayments integration
-    // You would typically call the NOWPayments API here to create an invoice
-    alert(`Selected ${packageName} for $${price}. Redirecting to payment gateway... (placeholder)`);
-    // Example: window.location.href = `https://nowpayments.io/invoice?invoice_id=YOUR_INVOICE_ID`
+  const handlePayment = (packageName: string, price: number, tokens: number) => {
+    setSelectedPlan(packageName);
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('price', price.toString());
+      formData.append('packageName', packageName);
+      formData.append('tokens', tokens.toString());
+
+      const result = await createNowPaymentsInvoice(formData);
+      
+      if (result.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Payment Error',
+          description: result.error,
+        });
+        setSelectedPlan(null);
+      } else if (result.invoiceUrl) {
+        // Redirect to NOWPayments
+        window.location.href = result.invoiceUrl;
+      }
+    });
   };
 
   return (
@@ -106,10 +128,15 @@ export function PricingPage() {
               <Button
                 className="w-full"
                 variant={plan.popular ? 'default' : 'outline'}
-                onClick={() => handlePayment(plan.name, plan.priceUSD)}
+                onClick={() => handlePayment(plan.name, plan.priceUSD, plan.tokens)}
+                disabled={isPending}
               >
-                <Diamond className="mr-2 h-4 w-4" />
-                {plan.cta}
+                {isPending && selectedPlan === plan.name ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Diamond className="mr-2 h-4 w-4" />
+                )}
+                {isPending && selectedPlan === plan.name ? 'Processing...' : plan.cta}
               </Button>
             </CardFooter>
           </Card>
@@ -125,5 +152,3 @@ export function PricingPage() {
     </div>
   );
 }
-
-    

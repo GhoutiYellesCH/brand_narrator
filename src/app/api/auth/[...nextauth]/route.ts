@@ -67,6 +67,7 @@ export const authOptions: NextAuthOptions = {
             if (credentials.isAnonymous === 'true') {
                 const userCredential = await signInAnonymously(clientAuth);
                 const profile = await getOrCreateUserProfile(userCredential.user.uid, null, true);
+                if (!profile) throw new Error('Could not create user profile.');
                 return { 
                     id: userCredential.user.uid, 
                     email: profile.email,
@@ -84,6 +85,7 @@ export const authOptions: NextAuthOptions = {
                     displayName: 'New User'
                 });
                 const profile = await getOrCreateUserProfile(userCredential.user.uid, email, false, 'New User');
+                if (!profile) throw new Error('Could not create user profile.');
                 return { 
                     id: userCredential.user.uid, 
                     email: email,
@@ -92,10 +94,11 @@ export const authOptions: NextAuthOptions = {
             } else {
                 userCredential = await signInWithEmailAndPassword(clientAuth, email, password);
                 const profile = await getOrCreateUserProfile(userCredential.user.uid, email, false);
+                if (!profile) throw new Error('Could not retrieve user profile.');
                 return { 
                     id: userCredential.user.uid, 
                     email: userCredential.user.email,
-                    name: userCredential.user.displayName,
+                    name: userCredential.user.displayName || profile.name,
                  };
             }
         } catch (e: any) {
@@ -111,7 +114,7 @@ export const authOptions: NextAuthOptions = {
                     throw new Error('Password must be at least 6 characters long.');
                 default:
                     console.error("Firebase Auth Error in NextAuth:", e);
-                    throw new Error('An unexpected authentication error occurred.');
+                    throw new Error(e.message || 'An unexpected authentication error occurred.');
             }
         }
       },
@@ -157,4 +160,3 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST, handler as auth };
-

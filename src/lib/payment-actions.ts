@@ -4,6 +4,9 @@
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { getFirebase } from '@/firebase/server';
+
+const { auth: adminAuth } = getFirebase();
 
 const CreateInvoiceSchema = z.object({
   price: z.number(),
@@ -11,9 +14,32 @@ const CreateInvoiceSchema = z.object({
   tokens: z.number(),
 });
 
+
+async function getUserIdFromServerSession(): Promise<string | null> {
+    try {
+        const sessionCookie = cookies().get('__session')?.value;
+        if (!sessionCookie) {
+            console.log('Server Action: Session cookie not found.');
+            return null;
+        }
+        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
+        return decodedToken.uid;
+    } catch (error) {
+        console.error('Server Action: Error verifying session cookie:', error);
+        return null;
+    }
+}
+
+
 export async function createAndRedirectToNowPaymentsInvoice(
   formData: FormData
 ) {
+  const userId = await getUserIdFromServerSession();
+  
+  if (!userId) {
+    throw new Error('You must be logged in to create an invoice.');
+  }
+
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
     packageName: formData.get('packageName') as string,
@@ -23,43 +49,53 @@ export async function createAndRedirectToNowPaymentsInvoice(
   if (!validatedFields.success) {
     throw new Error('Invalid invoice data.');
   }
-
+  
   const { price, packageName, tokens } = validatedFields.data;
   
-  try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-    if (!baseUrl) {
-      throw new Error('Base URL is not configured. Cannot create payment invoice.');
-    }
-    const apiUrl = new URL('/api/nowpayments-invoice', baseUrl).toString();
+  const apiKey = process.env.NOWPAYMENTS_API_KEY;
 
-    // When a server action calls an API route, it needs the full absolute URL.
-    // The 'fetch' call also needs to forward the cookies to the API route so the
-    // user's session can be verified.
-    const response = await fetch(apiUrl, {
+  if (!apiKey) {
+    console.error('NOWPayments API key is not configured.');
+    throw new Error('Payment service is not configured. Please contact support.');
+  }
+
+  try {
+    const orderId = `${userId}-${Date.now()}`;
+    const nowPaymentsApiUrl = 'https://api.nowpayments.io/v1/invoice';
+
+    const response = await fetch(nowPaymentsApiUrl, {
       method: 'POST',
       headers: {
+        'x-api-key': apiKey,
         'Content-Type': 'application/json',
-        'Cookie': cookies().toString(), // Forward cookies to the API route
       },
-      body: JSON.stringify({ price, packageName, tokens }),
+      body: JSON.stringify({
+        price_amount: price,
+        price_currency: 'usd',
+        order_id: orderId,
+        order_description: `${packageName} - ${tokens} Tokens for user ${userId}`,
+        success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?payment=success`,
+        cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?payment=cancelled`,
+        ipn_callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/nowpayments-ipn`,
+      }),
     });
 
     if (!response.ok) {
       const errorBody = await response.json();
+      console.error('NOWPayments API Error:', errorBody);
       throw new Error(errorBody.message || 'Failed to create payment invoice.');
     }
 
-    const { invoiceUrl } = await response.json();
-
-    if (invoiceUrl) {
-      redirect(invoiceUrl);
+    const invoice = await response.json();
+    
+    if (invoice.invoice_url) {
+      redirect(invoice.invoice_url);
     } else {
-      throw new Error('Failed to retrieve invoice URL from the server.');
+        throw new Error('Failed to retrieve invoice URL from payment provider.');
     }
   } catch (error: any) {
-    console.error('Error in server action when calling invoice API:', error);
-    // Re-throw the error to be handled by the UI
+    console.error('Error creating NOWPayments invoice:', error);
     throw new Error(error.message || 'An unexpected error occurred during payment processing.');
   }
 }
+

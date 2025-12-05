@@ -65,7 +65,7 @@ function CopyButton({ textToCopy }: { textToCopy: string }) {
 export function PromptGenerator() {
   const [state, formAction] = useActionState(generateAiPromptsAction, initialState);
   const [platform, setPlatform] = useState('');
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
 
   const brandStoryRef = useMemoFirebase(() => {
@@ -73,7 +73,7 @@ export function PromptGenerator() {
     return doc(firestore, 'users', user.uid, 'brandStories', 'default');
   }, [firestore, user?.uid]);
 
-  const { data: brandStory } = useDoc<any>(brandStoryRef);
+  const { data: brandStory, isLoading: isStoryLoading } = useDoc<any>(brandStoryRef);
 
   const [brandDescription, setBrandDescription] = useState('');
 
@@ -85,6 +85,8 @@ export function PromptGenerator() {
       setBrandDescription(`This is a company called ${brandStory.companyName}. Mission: ${brandStory.mission}. Values: ${brandStory.values}`);
     }
   }, [brandStory]);
+
+  const isLoading = isUserLoading || isStoryLoading;
 
 
   return (
@@ -108,6 +110,7 @@ export function PromptGenerator() {
                 required
                 value={brandDescription}
                 onChange={(e) => setBrandDescription(e.target.value)}
+                disabled={isLoading}
               />
               {state.fieldErrors?.brandDescription && <p className="text-sm text-destructive">{state.fieldErrors.brandDescription}</p>}
             </div>
@@ -118,6 +121,7 @@ export function PromptGenerator() {
                 name="targetAudience"
                 placeholder="e.g., Tech-savvy millennials, small business owners"
                 required
+                disabled={isLoading}
               />
               {state.fieldErrors?.targetAudience && <p className="text-sm text-destructive">{state.fieldErrors.targetAudience}</p>}
             </div>
@@ -128,12 +132,13 @@ export function PromptGenerator() {
                 name="contentGoal"
                 placeholder="e.g., Increase brand awareness, drive sign-ups"
                 required
+                disabled={isLoading}
               />
               {state.fieldErrors?.contentGoal && <p className="text-sm text-destructive">{state.fieldErrors.contentGoal}</p>}
             </div>
             <div className="space-y-2">
                 <Label>AI Platform</Label>
-                <Select name="platform" onValueChange={setPlatform} required>
+                <Select name="platform" onValueChange={setPlatform} required disabled={isLoading}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a platform" />
                     </SelectTrigger>
@@ -207,5 +212,3 @@ export function PromptGenerator() {
     </div>
   );
 }
-
-    

@@ -27,10 +27,16 @@ export async function createAndRedirectToNowPaymentsInvoice(
   const { price, packageName, tokens } = validatedFields.data;
   
   try {
-    // When a server action calls an API route, it should use a relative path.
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    if (!baseUrl) {
+      throw new Error('Base URL is not configured. Cannot create payment invoice.');
+    }
+    const apiUrl = new URL('/api/nowpayments-invoice', baseUrl).toString();
+
+    // When a server action calls an API route, it needs the full absolute URL.
     // The 'fetch' call also needs to forward the cookies to the API route so the
     // user's session can be verified.
-    const response = await fetch('/api/nowpayments-invoice', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

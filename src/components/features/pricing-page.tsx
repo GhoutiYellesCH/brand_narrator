@@ -5,10 +5,9 @@ import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
-import { useFormStatus } from 'react-dom';
 import { useUser } from '@/firebase';
 import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 const tokenPackages = [
   {
@@ -57,23 +56,37 @@ const tokenPackages = [
   },
 ];
 
-function BuyButton({ planName, cta, isPopular, disabled }: { planName: string; cta: string, isPopular: boolean, disabled: boolean }) {
-  const { pending, data } = useFormStatus();
-  const isSubmittingForThisPlan = pending && data?.get('packageName') === planName;
+type Package = (typeof tokenPackages)[0];
 
+function BuyButton({
+  plan,
+  cta,
+  isPopular,
+  disabled,
+  onClick,
+  isProcessing,
+}: {
+  plan: Package;
+  cta: string;
+  isPopular: boolean;
+  disabled: boolean;
+  onClick: (plan: Package) => void;
+  isProcessing: boolean;
+}) {
   return (
     <Button
       className="w-full"
       variant={isPopular ? 'default' : 'outline'}
-      type="submit"
-      disabled={pending || disabled}
+      type="button"
+      disabled={disabled || isProcessing}
+      onClick={() => onClick(plan)}
     >
-      {isSubmittingForThisPlan ? (
+      {isProcessing ? (
         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
       ) : (
         <Diamond className="mr-2 h-4 w-4" />
       )}
-      {isSubmittingForThisPlan ? 'Processing...' : cta}
+      {isProcessing ? 'Processing...' : cta}
     </Button>
   );
 }
@@ -81,15 +94,59 @@ function BuyButton({ planName, cta, isPopular, disabled }: { planName: string; c
 
 export function PricingPage() {
   const { user, isUserLoading } = useUser();
-  const [idToken, setIdToken] = useState('');
+  const { toast } = useToast();
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      user.getIdToken().then(setIdToken);
+  const handleBuyClick = async (plan: Package) => {
+    if (!user) {
+        toast({
+            variant: 'destructive',
+            title: 'Authentication Error',
+            description: 'You must be logged in to purchase tokens.',
+        });
+        return;
     }
-  }, [user]);
+    
+    setProcessingPlan(plan.name);
 
-  const isButtonDisabled = isUserLoading || !user || !idToken;
+    try {
+        const response = await fetch('/api/create-invoice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                price: plan.priceUSD,
+                packageName: plan.name,
+                tokens: plan.tokens,
+            }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to create payment invoice.');
+        }
+
+        if (result.invoiceUrl) {
+            window.location.href = result.invoiceUrl;
+        } else {
+            throw new Error('Invoice URL not found in the response.');
+        }
+
+    } catch (error: any) {
+        console.error('Error creating invoice:', error);
+        toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: error.message || 'An unexpected error occurred. Please try again.',
+        });
+        setProcessingPlan(null);
+    }
+  };
+
+
+  const isButtonDisabled = isUserLoading;
 
   return (
     <div className="flex flex-col items-center space-y-8">
@@ -108,12 +165,6 @@ export function PricingPage() {
               'border-primary ring-2 ring-primary shadow-lg': plan.popular,
             })}
           >
-            <form action={createAndRedirectToNowPaymentsInvoice}>
-              <input type="hidden" name="price" value={plan.priceUSD} />
-              <input type="hidden" name="packageName" value={plan.name} />
-              <input type="hidden" name="tokens" value={plan.tokens} />
-              <input type="hidden" name="idToken" value={idToken} />
-             
               <CardHeader className="relative">
                 {plan.popular && (
                   <div className="absolute top-0 right-4 -translate-y-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-semibold">
@@ -138,9 +189,15 @@ export function PricingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                 <BuyButton planName={plan.name} cta={plan.cta} isPopular={plan.popular} disabled={isButtonDisabled} />
+                 <BuyButton 
+                    plan={plan}
+                    cta={plan.cta} 
+                    isPopular={plan.popular} 
+                    disabled={isButtonDisabled}
+                    onClick={handleBuyClick}
+                    isProcessing={processingPlan === plan.name}
+                 />
               </CardFooter>
-            </form>
           </Card>
         ))}
       </div>

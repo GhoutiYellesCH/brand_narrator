@@ -1,8 +1,9 @@
 export type Post = {
     id: string;
+    columnId: ColumnId;
     platform: 'twitter' | 'linkedin' | 'instagram' | 'facebook';
     content: string;
-    scheduledAt: Date;
+    scheduledAt: Date | null;
     image?: string;
     imageHint?: string;
 };
@@ -12,7 +13,6 @@ export type ColumnId = 'ideas' | 'scheduled' | 'published';
 export type Column = {
     id: ColumnId;
     title: string;
-    posts: Post[];
 };
 
 export interface BrandStory {

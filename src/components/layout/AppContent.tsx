@@ -15,6 +15,7 @@ import {
   CreditCard,
   User as UserIcon,
   Diamond,
+  CalendarDays,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getAuth, signOut as clientSignOut, type User } from 'firebase/auth';
@@ -89,6 +90,9 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               </SidebarNavItem>
               <SidebarNavItem href="/brand-story" icon={<BookHeart />}>
                 Brand Story
+              </SidebarNavItem>
+              <SidebarNavItem href="/content-planner" icon={<CalendarDays />}>
+                Content Planner
               </SidebarNavItem>
               <SidebarNavItem href="/prompt-generator" icon={<Sparkles />}>
                 Prompt Generator

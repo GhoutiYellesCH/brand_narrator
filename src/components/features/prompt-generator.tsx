@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import {
   Card,
   CardContent,
@@ -61,7 +62,7 @@ function CopyButton({ textToCopy }: { textToCopy: string }) {
 }
 
 export function PromptGenerator() {
-  const [state, formAction] = useFormState(generateAiPromptsAction, initialState);
+  const [state, formAction] = useActionState(generateAiPromptsAction, initialState);
   const [platform, setPlatform] = useState('');
 
   return (

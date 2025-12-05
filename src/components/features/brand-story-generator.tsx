@@ -1,6 +1,7 @@
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import {
   Card,
   CardContent,
@@ -37,7 +38,7 @@ function SubmitButton() {
 }
 
 export function BrandStoryGenerator() {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     generateBrandStoryAction,
     initialState
   );

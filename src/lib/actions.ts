@@ -14,7 +14,7 @@ import {
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
 
-const { firestore: serverFirestore } = getFirebase();
+const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
 
 // This is a temporary placeholder for the user ID. In a real application,
 // this would be replaced with a robust session management solution
@@ -303,21 +303,21 @@ export async function createNowPaymentsInvoice(
     const invoice = await response.json();
 
     // Optionally, save the pending payment transaction to your database
-    const transactionsCollection = serverFirestore.collection('transactions');
-    const transactionRef = transactionsCollection.doc();
+    // const transactionsCollection = serverFirestore.collection('transactions');
+    // const transactionRef = transactionsCollection.doc();
     
-    const { FieldValue } = await import('firebase-admin/firestore');
+    // const { FieldValue } = await import('firebase-admin/firestore');
 
-    await transactionRef.set({
-      transactionId: transactionRef.id,
-      nowPaymentsInvoiceId: invoice.id,
-      status: 'pending',
-      orderId: orderId,
-      price: price,
-      tokens: tokens,
-      userId: userId,
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    // await transactionRef.set({
+    //   transactionId: transactionRef.id,
+    //   nowPaymentsInvoiceId: invoice.id,
+    //   status: 'pending',
+    //   orderId: orderId,
+    //   price: price,
+    //   tokens: tokens,
+    //   userId: userId,
+    //   createdAt: FieldValue.serverTimestamp(),
+    // });
 
 
     return { invoiceUrl: invoice.invoice_url };

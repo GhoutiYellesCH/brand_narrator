@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    serverActions: {
+      allowedOrigins: ['localhost:9002', '*.firebase.studio'],
+    }
+  }
 };
 
 export default nextConfig;

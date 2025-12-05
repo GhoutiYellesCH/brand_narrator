@@ -4,6 +4,10 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
+import { useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
+import type { User } from 'firebase/auth';
+import { signInWithCustomToken } from 'firebase/auth';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -33,12 +37,58 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  const auth = getAuth(firebaseApp);
+  // It's okay to connect to the emulator in dev.
+  // if (process.env.NODE_ENV === 'development') {
+  //   connectAuthEmulator(auth, 'http://localhost:9099');
+  // }
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
+    auth: auth,
     firestore: getFirestore(firebaseApp)
   };
 }
+
+const useUser = () => {
+    const { data: session, status } = useSession();
+    const [user, setUser] = useState<User | null>(null);
+    const [isUserLoading, setIsUserLoading] = useState(true);
+    const [userError, setUserError] = useState<Error | null>(null);
+
+    const { auth } = initializeFirebase();
+
+    useEffect(() => {
+        const syncUser = async () => {
+            if (status === 'loading') {
+                setIsUserLoading(true);
+                return;
+            }
+            if (status === 'unauthenticated') {
+                setUser(null);
+                setIsUserLoading(false);
+                if(auth.currentUser) {
+                  await auth.signOut();
+                }
+                return;
+            }
+            if (session?.firebaseToken) {
+                try {
+                    const credential = await signInWithCustomToken(auth, session.firebaseToken);
+                    setUser(credential.user);
+                } catch(e: any) {
+                    setUserError(e);
+                    console.error("Failed to sign in with custom token", e);
+                } finally {
+                    setIsUserLoading(false);
+                }
+            }
+        }
+        syncUser();
+    }, [session, status, auth]);
+    
+    return { user, isUserLoading, userError };
+}
+
 
 export * from './provider';
 export * from './client-provider';
@@ -48,3 +98,4 @@ export * from './non-blocking-updates';
 export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
+export { useUser };

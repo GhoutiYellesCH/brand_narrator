@@ -1,4 +1,3 @@
-
 'use server';
 
 import { z } from 'zod';
@@ -14,26 +13,20 @@ import {
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { cookies } from 'next/headers';
+import { auth as nextAuth } from '@/app/api/auth/[...nextauth]/route';
 import type { UserProfile, BrandStory } from '@/lib/definitions';
 
 const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
 
 async function getUserIdFromServerSession(): Promise<string | null> {
     try {
-        const sessionCookie = cookies().get('__session')?.value;
-        if (!sessionCookie) {
-            console.log('Session cookie not found.');
-            return null;
+        const session = await nextAuth();
+        if (session?.user?.id) {
+            return session.user.id;
         }
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
-        return decodedToken.uid;
+        return null;
     } catch (error) {
-        // This is expected if the cookie is invalid or expired.
-        if ((error as any).code === 'auth/session-cookie-expired' || (error as any).code === 'auth/session-cookie-revoked') {
-          return null;
-        }
-        console.error('Error verifying session cookie in server action:', error);
+        console.error('Error getting server session:', error);
         return null;
     }
 }

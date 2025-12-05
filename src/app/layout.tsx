@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import AppContent from '@/components/layout/AppContent';
+import { SessionProvider } from 'next-auth/react';
 
 
 export const metadata: Metadata = {
@@ -29,11 +30,13 @@ export default function RootLayout({
           'antialiased font-body'
         )}
       >
-        <FirebaseClientProvider>
-          <AppContent>
-            {children}
-          </AppContent>
-        </FirebaseClientProvider>
+        <SessionProvider>
+          <FirebaseClientProvider>
+            <AppContent>
+              {children}
+            </AppContent>
+          </FirebaseClientProvider>
+        </SessionProvider>
         <Toaster />
       </body>
     </html>

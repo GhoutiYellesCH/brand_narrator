@@ -1,8 +1,8 @@
-
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useSession, signOut } from 'next-auth/react';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Sidebar, SidebarProvider, SidebarBody, SidebarNav, SidebarNavItem, SidebarHeader, SidebarTrigger, SidebarContent, SidebarFooter } from '@/components/layout/sidebar';
 import { Logo } from '@/components/logo';
@@ -18,60 +18,51 @@ import {
   CalendarDays,
 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getAuth, signOut as clientSignOut, type User } from 'firebase/auth';
 import { useEffect } from 'react';
 
 const publicRoutes = ['/login', '/'];
 
-// Server action to clear the session cookie
-async function signOut() {
-  await fetch('/api/auth/session', { method: 'DELETE' });
-}
-
-
 export default function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isUserLoading } = useUser();
-  const auth = getAuth();
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const isUserLoading = status === 'loading';
   const firestore = useFirestore();
 
   const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user?.uid]);
+    if (!firestore || !user?.id) return null;
+    return doc(firestore, 'users', user.id);
+  }, [firestore, user?.id]);
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<any>(userProfileRef);
 
   useEffect(() => {
-    if (!isUserLoading && !user && !publicRoutes.includes(pathname)) {
+    if (status === 'unauthenticated' && !publicRoutes.includes(pathname)) {
       router.push('/login');
     }
-  }, [user, isUserLoading, pathname, router]);
+  }, [status, pathname, router]);
 
   const handleSignOut = async () => {
-    // Sign out from Firebase client
-    await clientSignOut(auth);
-    // Sign out from server session
-    await signOut();
-    // Redirect to login
-    router.push('/login');
+    await signOut({ callbackUrl: '/login' });
   };
 
   const isLoading = isUserLoading || (user && isProfileLoading);
 
-  if (publicRoutes.includes(pathname) || isLoading) {
-    if (isLoading && !publicRoutes.includes(pathname)) {
-        return (
-            <div className="flex h-screen w-screen items-center justify-center bg-background">
-              <div className="flex flex-col items-center gap-4 animate-pulse">
-                <Logo />
-              </div>
-            </div>
-          );
-    }
+  if (publicRoutes.includes(pathname) || status === 'unauthenticated') {
     return <>{children}</>;
   }
+
+  if (isLoading) {
+    return (
+        <div className="flex h-screen w-screen items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-4 animate-pulse">
+            <Logo />
+          </div>
+        </div>
+      );
+  }
+
 
   return (
     <SidebarProvider>

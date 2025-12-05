@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "content-planner-1",
+      "description": "Abstract purple and blue shapes",
+      "imageUrl": "https://images.unsplash.com/photo-1557264337-e8a93017fe92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxhYnN0cmFjdCUyMHRlY2h8ZW58MHx8fHwxNzY0ODI5ODgxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract tech"
+    },
+    {
+      "id": "content-planner-2",
+      "description": "A person working on a laptop in a modern office",
+      "imageUrl": "https://images.unsplash.com/photo-1556761175-4b46a572b786?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxzdGFydHVwJTIwb2ZmaWNlfGVufDB8fHx8MTc2NDkxMjg3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "startup office"
+    },
+    {
+      "id": "content-planner-3",
+      "description": "A glowing lightbulb symbolizing ideas",
+      "imageUrl": "https://images.unsplash.com/photo-1617706111157-5f5c6443a04d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxpZGVhJTIwaW5ub3ZhdGlvbnxlbnwwfHx8fDE3NjQ5NDQ1Nzd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "idea innovation"
+    }
+  ]
 }

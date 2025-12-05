@@ -1,14 +1,12 @@
 
 'use client';
 
-import { Check, Diamond, Loader2 } from 'lucide-react';
+import { Check, Diamond } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useAuth, useUser } from '@/firebase';
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useUser } from '@/firebase';
+import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
 
 
 const tokenPackages = [
@@ -63,64 +61,6 @@ type Package = (typeof tokenPackages)[0];
 
 export function PricingPage() {
   const { user, isUserLoading } = useUser();
-  const auth = useAuth();
-  const { toast } = useToast();
-  const router = useRouter();
-  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
-
-  const handleBuyClick = async (plan: Package) => {
-    if (!user) {
-        toast({
-            variant: 'destructive',
-            title: 'Authentication Error',
-            description: 'You must be logged in to purchase tokens.',
-        });
-        return;
-    }
-    
-    setProcessingPlan(plan.name);
-
-    try {
-        const idToken = await user.getIdToken();
-
-        const response = await fetch('/api/create-invoice', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`,
-            },
-            body: JSON.stringify({
-                price: plan.priceUSD,
-                packageName: plan.name,
-                tokens: plan.tokens,
-            }),
-        });
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            throw new Error(result.error || 'Failed to create payment invoice.');
-        }
-
-        if (result.invoiceUrl) {
-            router.push(result.invoiceUrl);
-        } else {
-            throw new Error('Failed to retrieve invoice URL from payment provider.');
-        }
-
-    } catch (error: any) {
-        console.error('Error creating invoice:', error);
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: error.message || 'An unexpected error occurred. Please try again.',
-        });
-    } finally {
-        setProcessingPlan(null);
-    }
-  };
-
-
   const isButtonDisabled = isUserLoading || !user;
 
   return (
@@ -164,19 +104,20 @@ export function PricingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                 <Button
-                    className="w-full"
-                    variant={plan.popular ? 'default' : 'outline'}
-                    disabled={isButtonDisabled || processingPlan === plan.name}
-                    onClick={() => handleBuyClick(plan)}
-                >
-                    {processingPlan === plan.name ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
+                 <form action={createAndRedirectToNowPaymentsInvoice} className="w-full">
+                    <input type="hidden" name="price" value={plan.priceUSD} />
+                    <input type="hidden" name="packageName" value={plan.name} />
+                    <input type="hidden" name="tokens" value={plan.tokens} />
+                    <Button
+                        type="submit"
+                        className="w-full"
+                        variant={plan.popular ? 'default' : 'outline'}
+                        disabled={isButtonDisabled}
+                    >
                         <Diamond className="mr-2 h-4 w-4" />
-                    )}
-                    {processingPlan === plan.name ? 'Processing...' : 'Buy Tokens'}
-                </Button>
+                        Buy Tokens
+                    </Button>
+                </form>
               </CardFooter>
           </Card>
         ))}

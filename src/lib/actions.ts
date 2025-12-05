@@ -3,15 +3,6 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  collection,
-  serverTimestamp,
-  increment,
-} from 'firebase/firestore';
 import { interactiveStoryGathering } from '@/ai/flows/interactive-story-gathering';
 import {
   type GenerateAiPromptsInput,
@@ -23,7 +14,7 @@ import {
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
 
-const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
+const { firestore: serverFirestore } = getFirebase();
 
 // This is a temporary placeholder for the user ID. In a real application,
 // this would be replaced with a robust session management solution
@@ -44,16 +35,18 @@ async function checkAndDeductTokens(userId: string, amount: number): Promise<voi
       console.log(`DEV MODE: Skipping token deduction of ${amount} for placeholder user.`);
       return;
   }
-  const userRef = doc(serverFirestore, 'users', userId);
-  const userDoc = await getDoc(userRef);
+  const userRef = serverFirestore.doc(`users/${userId}`);
+  const userDoc = await userRef.get();
   const userData = userDoc.data();
 
   if (!userData || userData.tokens < amount) {
     throw new Error('Insufficient tokens. Please purchase more to continue.');
   }
 
-  await updateDoc(userRef, {
-    tokens: increment(-amount),
+  // Firestore Admin SDK uses FieldValue for increments
+  const { FieldValue } = await import('firebase-admin/firestore');
+  await userRef.update({
+    tokens: FieldValue.increment(-amount),
   });
 }
 
@@ -82,8 +75,12 @@ export async function getAiStoryResponse(
     });
 
     // Save the updated conversation history to Firestore non-blockingly
-    const storyRef = doc(serverFirestore, 'users', userId, 'brandStories', brandStoryId);
-    updateDoc(storyRef, { storyConversation: response.updatedConversationHistory }).catch(
+    const storyRef = serverFirestore.doc(`users/${userId}/brandStories/${brandStoryId}`);
+    const { FieldValue } = await import('firebase-admin/firestore');
+    storyRef.update({ 
+        storyConversation: response.updatedConversationHistory,
+        updatedAt: FieldValue.serverTimestamp(),
+    }).catch(
       (e) => console.error('Failed to save conversation history:', e)
     );
 
@@ -156,14 +153,15 @@ export async function generateBrandStoryAction(
     const result = await generateBrandStory(input as GenerateBrandStoryInput);
 
     // Save the generated story and inputs to Firestore
-    const storyRef = doc(serverFirestore, 'users', userId, 'brandStories', brandStoryId);
-    await setDoc(
-      storyRef,
+    const storyRef = serverFirestore.doc(`users/${userId}/brandStories/${brandStoryId}`);
+    const { FieldValue } = await import('firebase-admin/firestore');
+
+    await storyRef.set(
       {
         ...input,
         userId,
         content: result.brandStory,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
@@ -223,8 +221,8 @@ export async function generateAiPromptsAction(
   try {
     await checkAndDeductTokens(userId, 5); // Deduct 5 tokens per prompt
 
-    const brandStoryRef = doc(serverFirestore, 'users', userId, 'brandStories', 'default');
-    const brandStorySnap = await getDoc(brandStoryRef);
+    const brandStoryRef = serverFirestore.doc(`users/${userId}/brandStories/default`);
+    const brandStorySnap = await brandStoryRef.get();
     const brandStoryData = brandStorySnap.data();
 
     const input: GenerateAiPromptsInput = {
@@ -305,10 +303,12 @@ export async function createNowPaymentsInvoice(
     const invoice = await response.json();
 
     // Optionally, save the pending payment transaction to your database
-    const transactionsCollection = collection(serverFirestore, 'transactions');
-    const transactionRef = doc(transactionsCollection);
+    const transactionsCollection = serverFirestore.collection('transactions');
+    const transactionRef = transactionsCollection.doc();
+    
+    const { FieldValue } = await import('firebase-admin/firestore');
 
-    await setDoc(transactionRef, {
+    await transactionRef.set({
       transactionId: transactionRef.id,
       nowPaymentsInvoiceId: invoice.id,
       status: 'pending',
@@ -316,7 +316,7 @@ export async function createNowPaymentsInvoice(
       price: price,
       tokens: tokens,
       userId: userId,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
 

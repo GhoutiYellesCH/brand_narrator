@@ -8,7 +8,6 @@ import { Logo } from '@/components/logo';
 import {
   BotMessageSquare,
   BookHeart,
-  CalendarDays,
   Sparkles,
   Home,
   LogOut,
@@ -79,9 +78,6 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               <SidebarNavItem href="/brand-story" icon={<BookHeart />}>
                 Brand Story
               </SidebarNavItem>
-              <SidebarNavItem href="/content-planner" icon={<CalendarDays />}>
-                Content Planner
-              </SidebarNavItem>
               <SidebarNavItem href="/prompt-generator" icon={<Sparkles />}>
                 Prompt Generator
               </SidebarNavItem>
@@ -120,5 +116,3 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
     </SidebarProvider>
   );
 }
-
-    

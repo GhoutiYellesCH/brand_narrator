@@ -3,6 +3,7 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
 import { Providers } from './providers';
+import AppContent from '@/components/layout/AppContent';
 
 
 export const metadata: Metadata = {
@@ -29,7 +30,9 @@ export default function RootLayout({
         )}
       >
         <Providers>
-          {children}
+          <AppContent>
+            {children}
+          </AppContent>
         </Providers>
         <Toaster />
       </body>

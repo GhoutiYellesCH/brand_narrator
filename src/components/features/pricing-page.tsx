@@ -110,10 +110,12 @@ export function PricingPage() {
     setProcessingPlan(plan.name);
 
     try {
+        const idToken = await user.getIdToken();
         const response = await fetch('/api/create-invoice', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
             },
             body: JSON.stringify({
                 price: plan.priceUSD,

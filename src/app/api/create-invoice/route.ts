@@ -1,27 +1,27 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getFirebase } from '@/firebase/server';
 
 const { auth: adminAuth } = getFirebase();
 
-async function getUserIdFromServerSession(): Promise<string | null> {
+async function getUserIdFromIdToken(request: NextRequest): Promise<string | null> {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+        console.error('API Route: Authorization header missing or malformed.');
+        return null;
+    }
+    const idToken = authHeader.split('Bearer ')[1];
     try {
-        const sessionCookie = cookies().get('__session')?.value;
-        if (!sessionCookie) {
-            console.error('API Route: Session cookie not found.');
-            return null;
-        }
-        const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
+        const decodedToken = await adminAuth.verifyIdToken(idToken);
         return decodedToken.uid;
     } catch (error) {
-        console.error('API Route: Error verifying session cookie:', error);
+        console.error('API Route: Error verifying ID token:', error);
         return null;
     }
 }
 
 export async function POST(request: NextRequest) {
-    const userId = await getUserIdFromServerSession();
+    const userId = await getUserIdFromIdToken(request);
     if (!userId) {
         return NextResponse.json({ error: 'You must be logged in to create an invoice.' }, { status: 401 });
     }

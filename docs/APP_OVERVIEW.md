@@ -102,3 +102,4 @@ The codebase is organized to separate concerns, making it easier to manage and s
 
 -   The database is structured around user ownership. All user-specific data (brand stories, etc.) is stored in subcollections under that user's document in the main `/users` collection (e.g., `/users/{userId}/brandStories/{storyId}`).
 -   This hierarchical structure makes security rules simple and efficient, as ownership can be verified simply by checking the path of the document against the requester's UID. The `docs/backend.json` file serves as a schema and blueprint for this structure.
+```

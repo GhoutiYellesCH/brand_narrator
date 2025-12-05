@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useActionState, useEffect, useState, useMemo } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useSession } from 'next-auth/react';
 import {
   Card,
   CardContent,
@@ -24,8 +25,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { generateBrandStoryAction, type BrandStoryState } from '@/lib/ai-actions';
 import { Loader2, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
 import { Skeleton } from '../ui/skeleton';
 
 const initialState: BrandStoryState = {};
@@ -54,32 +53,27 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
 
 export function BrandStoryGenerator() {
   const [state, formAction] = useActionState(generateBrandStoryAction, initialState);
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
+  const { data: session, status } = useSession();
+  const isUserLoading = status === 'loading';
+  const user = session?.user;
 
-  const brandStoryRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid, 'brandStories', 'default');
-  }, [firestore, user?.uid]);
-
-  const { data: brandStory, isLoading: isStoryLoading } = useDoc<any>(brandStoryRef);
-
-  const [formValues, setFormValues] = useState<any>(brandStory || {});
-
-  useEffect(() => {
-    if (brandStory) {
-      setFormValues(brandStory);
-    }
-  }, [brandStory]);
+  // Since we removed Firestore listeners, we just manage form state locally.
+  const [formValues, setFormValues] = useState<any>({});
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormValues((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  const isLoading = isUserLoading || isStoryLoading;
+  const [generatedStory, setGeneratedStory] = useState('');
 
-  if (isLoading) {
+  useEffect(() => {
+    if (state.brandStory) {
+      setGeneratedStory(state.brandStory);
+    }
+  }, [state.brandStory]);
+
+  if (isUserLoading) {
     return <BrandStorySkeleton />;
   }
 
@@ -93,7 +87,7 @@ export function BrandStoryGenerator() {
             </CardTitle>
             <CardDescription>
               Answer these questions to provide our AI with the raw material to craft a powerful
-              and authentic brand narrative. The more detail, the better. Your progress is saved automatically.
+              and authentic brand narrative. The more detail, the better.
             </CardDescription>
           </CardHeader>
           <form action={formAction}>
@@ -236,9 +230,9 @@ export function BrandStoryGenerator() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-1 min-h-[400px]">
-            {state.brandStory || brandStory?.content ? (
+            {generatedStory ? (
               <div className="prose prose-sm max-w-none text-card-foreground/90 whitespace-pre-wrap h-full overflow-y-auto">
-                <p>{state.brandStory || brandStory?.content}</p>
+                <p>{generatedStory}</p>
               </div>
             ) : (
               <div className="flex h-full items-center justify-center rounded-lg border-2 border-dashed bg-muted/50 p-8">

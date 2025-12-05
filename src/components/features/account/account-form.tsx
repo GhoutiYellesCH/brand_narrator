@@ -3,8 +3,7 @@
 
 import { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,16 +32,8 @@ function SubmitButton() {
 }
 
 export function AccountForm() {
-    const { user, isUserLoading } = useUser();
-    const firestore = useFirestore();
+    const { data: session, status } = useSession();
     const { toast } = useToast();
-
-    const userProfileRef = useMemoFirebase(() => {
-        if (!firestore || !user?.uid) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [firestore, user?.uid]);
-
-    const { data: userProfile, isLoading: isProfileLoading } = useDoc<any>(userProfileRef);
 
     const [state, formAction] = useActionState(updateUserProfileAction, initialState);
 
@@ -61,7 +52,7 @@ export function AccountForm() {
         }
     }, [state, toast]);
 
-    const isLoading = isUserLoading || isProfileLoading;
+    const isLoading = status === 'loading';
 
     if (isLoading) {
         return <AccountFormSkeleton />;
@@ -74,16 +65,16 @@ export function AccountForm() {
                 <CardDescription>Update your name and email address.</CardDescription>
             </CardHeader>
             <form action={formAction}>
-                <input type="hidden" name="userId" value={user?.uid || ''} />
+                <input type="hidden" name="userId" value={session?.user?.id || ''} />
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Full Name</Label>
-                        <Input id="name" name="name" defaultValue={userProfile?.name || ''} required />
+                        <Input id="name" name="name" defaultValue={session?.user?.name || ''} required />
                         {state.fieldErrors?.name && <p className="text-sm text-destructive">{state.fieldErrors.name.join(', ')}</p>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email Address</Label>
-                        <Input id="email" name="email" type="email" defaultValue={userProfile?.email || ''} disabled />
+                        <Input id="email" name="email" type="email" defaultValue={session?.user?.email || ''} disabled />
                         <p className="text-xs text-muted-foreground">Email address cannot be changed.</p>
                     </div>
                      {state.error && (

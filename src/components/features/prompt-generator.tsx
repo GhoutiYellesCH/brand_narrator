@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useActionState, useState, useEffect, useMemo } from 'react';
+import { useActionState, useState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useSession } from 'next-auth/react';
 import {
   Card,
   CardContent,
@@ -25,8 +26,6 @@ import { generateAiPromptsAction, type PromptGeneratorState } from '@/lib/ai-act
 import { Loader2, Sparkles, Copy, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Input } from '../ui/input';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
 
 const initialState: PromptGeneratorState = {};
 
@@ -66,28 +65,18 @@ function CopyButton({ textToCopy }: { textToCopy: string }) {
 export function PromptGenerator() {
   const [state, formAction] = useActionState(generateAiPromptsAction, initialState);
   const [platform, setPlatform] = useState('');
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
+  const { data: session, status } = useSession();
+  const isUserLoading = status === 'loading';
 
-  const brandStoryRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid, 'brandStories', 'default');
-  }, [firestore, user?.uid]);
+  const [brandDescription, setBrandDescription] = useState('Please generate a brand story first to populate this field automatically.');
 
-  const { data: brandStory, isLoading: isStoryLoading } = useDoc<any>(brandStoryRef);
-
-  const [brandDescription, setBrandDescription] = useState('');
-
+  // In a real app, this would be populated from a database.
+  // For now, we use a placeholder.
   useEffect(() => {
-    if (brandStory?.content) {
-      setBrandDescription(brandStory.content);
-    } else if (brandStory?.companyName) {
-      // Fallback if content is not yet generated
-      setBrandDescription(`This is a company called ${brandStory.companyName}. Mission: ${brandStory.mission}. Values: ${brandStory.values}`);
+    if (status === 'authenticated') {
+      setBrandDescription(`This is a company called BrandNarrator. Our mission is to help startups tell their story. Our values are authenticity and innovation.`);
     }
-  }, [brandStory]);
-
-  const isLoading = isUserLoading || isStoryLoading;
+  }, [status]);
 
 
   return (
@@ -111,7 +100,7 @@ export function PromptGenerator() {
                 required
                 value={brandDescription}
                 onChange={(e) => setBrandDescription(e.target.value)}
-                disabled={isLoading}
+                disabled={isUserLoading}
               />
               {state.fieldErrors?.brandDescription && <p className="text-sm text-destructive">{state.fieldErrors.brandDescription.join(', ')}</p>}
             </div>
@@ -122,7 +111,7 @@ export function PromptGenerator() {
                 name="targetAudience"
                 placeholder="e.g., Tech-savvy millennials, small business owners"
                 required
-                disabled={isLoading}
+                disabled={isUserLoading}
               />
               {state.fieldErrors?.targetAudience && <p className="text-sm text-destructive">{state.fieldErrors.targetAudience.join(', ')}</p>}
             </div>
@@ -133,13 +122,13 @@ export function PromptGenerator() {
                 name="contentGoal"
                 placeholder="e.g., Increase brand awareness, drive sign-ups"
                 required
-                disabled={isLoading}
+                disabled={isUserLoading}
               />
               {state.fieldErrors?.contentGoal && <p className="text-sm text-destructive">{state.fieldErrors.contentGoal.join(', ')}</p>}
             </div>
             <div className="space-y-2">
                 <Label>AI Platform</Label>
-                <Select name="platform" onValueChange={setPlatform} required disabled={isLoading}>
+                <Select name="platform" onValueChange={setPlatform} required disabled={isUserLoading}>
                     <SelectTrigger>
                         <SelectValue placeholder="Select a platform" />
                     </SelectTrigger>

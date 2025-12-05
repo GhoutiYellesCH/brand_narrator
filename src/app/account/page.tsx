@@ -1,6 +1,5 @@
 
 import { AccountForm } from '@/components/features/account/account-form';
-import { PasswordChangeForm } from '@/components/features/account/password-change-form';
 import { Separator } from '@/components/ui/separator';
 import type { Metadata } from 'next';
 
@@ -15,17 +14,13 @@ export default function AccountPage() {
             <div>
                 <h1 className="text-2xl font-headline">My Account</h1>
                 <p className="text-muted-foreground">
-                    Manage your account settings, profile, and password.
+                    Manage your account settings and profile.
                 </p>
             </div>
             
             <Separator />
 
             <AccountForm />
-
-            <Separator />
-
-            <PasswordChangeForm />
 
         </div>
     );

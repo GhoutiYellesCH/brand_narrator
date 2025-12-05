@@ -1,6 +1,5 @@
 
 import { getApps, initializeApp, getApp, App } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseConfig } from './config';
 
@@ -8,10 +7,6 @@ import { firebaseConfig } from './config';
 
 let adminApp: App;
 
-// The previous logic was attempting to initialize without credentials,
-// which fails in many environments. This new logic ensures that the
-// Admin SDK is always initialized with the correct project ID, which
-// is a more robust method for server-side environments.
 if (getApps().length === 0) {
   adminApp = initializeApp({
     projectId: firebaseConfig.projectId,
@@ -20,10 +15,9 @@ if (getApps().length === 0) {
   adminApp = getApp();
 }
 
-
-const auth = getAuth(adminApp);
 const firestore = getFirestore(adminApp);
 
 export function getFirebase() {
-  return { auth, firestore, app: adminApp };
+  // Note: The 'auth' export has been removed as we are no longer using Firebase Admin for Auth.
+  return { firestore, app: adminApp };
 }

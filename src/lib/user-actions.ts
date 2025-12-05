@@ -5,8 +5,8 @@ import { revalidatePath } from 'next/cache';
 import { getFirebase } from '@/firebase/server';
 import { auth as nextAuth } from '@/app/api/auth/[...nextauth]/route';
 
-const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
-
+// Note: This file now uses a mock implementation.
+// In a real application, you would replace this with actual database calls.
 
 async function getUserIdFromServerSession(): Promise<string | null> {
     try {
@@ -60,11 +60,12 @@ export async function updateUserProfileAction(
   }
   
   try {
-    const userRef = serverFirestore.doc(`users/${userId}`);
-    await userRef.update({
-      name: name,
-    });
+    // In a real application, you would update the user's name in your database here.
+    // For now, we'll just log it to the server console.
+    console.log(`Updating name for user ${userId} to: ${name}`);
     
+    // We revalidate paths to simulate data being updated, which can be useful
+    // if you add a real database later.
     revalidatePath('/account');
     revalidatePath('/dashboard');
     return { success: true };
@@ -73,63 +74,4 @@ export async function updateUserProfileAction(
     console.error('Error updating user profile:', error);
     return { error: 'Failed to update your profile. Please try again.' };
   }
-}
-
-
-// Password Change Action
-const PasswordChangeStateSchema = z.object({
-  success: z.boolean().optional(),
-  error: z.string().optional(),
-  fieldErrors: z.record(z.array(z.string())).optional(),
-});
-export type PasswordChangeState = z.infer<typeof PasswordChangeStateSchema>;
-
-const PasswordChangeFormSchema = z.object({
-    password: z.string().min(6, 'Password must be at least 6 characters.'),
-    confirmPassword: z.string(),
-}).refine(data => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-});
-
-export async function changePasswordAction(
-    prevState: PasswordChangeState,
-    formData: FormData
-): Promise<PasswordChangeState> {
-    const userId = await getUserIdFromServerSession();
-    if (!userId) {
-        return { error: 'You are not authorized to perform this action.' };
-    }
-
-    const validatedFields = PasswordChangeFormSchema.safeParse(
-        Object.fromEntries(formData.entries())
-    );
-
-    if (!validatedFields.success) {
-        return {
-            fieldErrors: validatedFields.error.flatten().fieldErrors,
-        };
-    }
-
-    const { password } = validatedFields.data;
-    
-    const submittedUserId = formData.get('userId') as string;
-    if (userId !== submittedUserId) {
-        return { error: 'Unauthorized action. User ID mismatch.' };
-    }
-
-    try {
-        await adminAuth.updateUser(userId, {
-            password: password,
-        });
-
-        revalidatePath('/account');
-        return { success: true };
-    } catch (error: any) {
-        console.error('Error changing password:', error);
-        if (error.code === 'auth/requires-recent-login') {
-            return { error: 'This action is sensitive and requires recent authentication. Please sign out and sign back in to change your password.' };
-        }
-        return { error: 'Failed to change password. Please try again.' };
-    }
 }

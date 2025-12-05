@@ -2,8 +2,6 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
-import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
 import { Sidebar, SidebarProvider, SidebarBody, SidebarNav, SidebarNavItem, SidebarHeader, SidebarTrigger, SidebarContent, SidebarFooter } from '@/components/layout/sidebar';
 import { Logo } from '@/components/logo';
 import {
@@ -27,16 +25,8 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
-  const user = session?.user;
   const isUserLoading = status === 'loading';
-  const firestore = useFirestore();
-
-  const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user?.id) return null;
-    return doc(firestore, 'users', user.id);
-  }, [firestore, user?.id]);
-
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<any>(userProfileRef);
+  const user = session?.user;
 
   useEffect(() => {
     if (status === 'unauthenticated' && !publicRoutes.includes(pathname)) {
@@ -47,14 +37,12 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' });
   };
-
-  const isLoading = isUserLoading || (user && isProfileLoading);
-
+  
   if (publicRoutes.includes(pathname) || status === 'unauthenticated') {
     return <>{children}</>;
   }
 
-  if (isLoading) {
+  if (isUserLoading) {
     return (
         <div className="flex h-screen w-screen items-center justify-center bg-background">
           <div className="flex flex-col items-center gap-4 animate-pulse">
@@ -104,7 +92,7 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
                     <div className="font-semibold text-foreground">Your AI Tokens</div>
                     <div className="flex items-center gap-2 text-2xl font-bold text-primary">
                         <Diamond className="h-6 w-6" />
-                        <span>{userProfile?.tokens?.toLocaleString() || 0}</span>
+                        <span>100</span>
                     </div>
                      <Button size="sm" variant="secondary" onClick={() => router.push('/pricing')}>
                         Buy More

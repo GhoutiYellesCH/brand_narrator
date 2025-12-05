@@ -1,8 +1,9 @@
 
 'use client';
 
-import { useState, useRef, useEffect, useTransition, useMemo } from 'react';
-import { Bot, User, CornerDownLeft, Loader2, Sparkles } from 'lucide-react';
+import { useState, useRef, useEffect, useTransition } from 'react';
+import { useSession } from 'next-auth/react';
+import { Bot, User, CornerDownLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -10,8 +11,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { getAiStoryResponse } from '@/lib/ai-actions';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
 
 interface Message {
   id: string;
@@ -20,6 +19,10 @@ interface Message {
 }
 
 export function InteractiveStoryGathering() {
+  const { data: session, status } = useSession();
+  const isUserLoading = status === 'loading';
+  const user = session?.user;
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -31,26 +34,8 @@ export function InteractiveStoryGathering() {
   const [isPending, startTransition] = useTransition();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  const brandStoryRef = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return doc(firestore, 'users', user.uid, 'brandStories', 'default');
-  }, [firestore, user?.uid]);
-
-  const { data: brandStory, isLoading: isStoryLoading } = useDoc<any>(brandStoryRef);
-
-  // This state will hold the definitive conversation history from Firestore
+  
   const [conversationHistory, setConversationHistory] = useState('');
-
-  useEffect(() => {
-    // When brandStory data loads, update the conversation history state
-    if (brandStory?.storyConversation) {
-      setConversationHistory(brandStory.storyConversation);
-    }
-  }, [brandStory]);
-
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -63,7 +48,7 @@ export function InteractiveStoryGathering() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input.trim() || !user || !brandStory) return;
+    if (!input.trim() || !user) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -75,7 +60,8 @@ export function InteractiveStoryGathering() {
     setInput('');
     
     startTransition(async () => {
-      const result = await getAiStoryResponse(input, conversationHistory, brandStory.id, currentMessagesCount);
+      // NOTE: brandStoryId is hardcoded as 'default' because we removed complex user management.
+      const result = await getAiStoryResponse(input, conversationHistory, 'default', currentMessagesCount);
       if (result.error) {
         toast({
             variant: "destructive",
@@ -91,13 +77,12 @@ export function InteractiveStoryGathering() {
           content: result.aiResponse,
         };
         setMessages(prev => [...prev, aiMessage]);
-        // The definitive history is now the one returned by the server action
         setConversationHistory(result.updatedConversationHistory);
       }
     });
   };
 
-  const isLoading = isUserLoading || isStoryLoading;
+  const isLoading = isUserLoading;
 
   return (
     <div className="flex flex-col h-full bg-card rounded-xl border">

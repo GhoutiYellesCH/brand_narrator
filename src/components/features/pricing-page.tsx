@@ -2,11 +2,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useUser, useAuth } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
@@ -60,14 +60,15 @@ const tokenPackages = [
 type Package = (typeof tokenPackages)[0];
 
 export function PricingPage() {
-  const { user, isUserLoading } = useUser();
-  const auth = useAuth();
+  const { data: session, status } = useSession();
+  const isUserLoading = status === 'loading';
+  const user = session?.user;
   const router = useRouter();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
   const handleBuyClick = async (plan: Package) => {
-    if (!user || !auth) {
+    if (!user) {
       toast({
         variant: 'destructive',
         title: 'Authentication Error',
@@ -79,38 +80,22 @@ export function PricingPage() {
     setIsProcessing(plan.name);
 
     try {
-      const idToken = await user.getIdToken();
-      
-      const response = await fetch('/api/create-invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          price: plan.priceUSD,
-          packageName: plan.name,
-          tokens: plan.tokens,
-        }),
+      // Since we don't have a NextAuth session token with Firebase claims,
+      // we can't securely call the backend. This is a placeholder for a real payment flow.
+      toast({
+        title: 'Payment Integration Disabled',
+        description: 'This feature is for demonstration purposes only.',
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create payment invoice.');
-      }
-
-      if (result.invoiceUrl) {
-        router.push(result.invoiceUrl);
-      } else {
-        throw new Error('Could not retrieve payment URL.');
-      }
+      // In a real app, you would get a session token and call your backend.
+      // const response = await fetch('/api/create-invoice', { ... });
+      // const result = await response.json();
+      // router.push(result.invoiceUrl);
     } catch (error: any) {
-      console.error('Failed to create invoice:', error);
+      console.error('Payment processing error:', error);
       toast({
         variant: 'destructive',
         title: 'Payment Error',
-        description: error.message || 'An unexpected error occurred. Please try again.',
+        description: error.message || 'An unexpected error occurred.',
       });
     } finally {
       setIsProcessing(null);

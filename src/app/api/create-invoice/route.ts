@@ -1,6 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getFirebase } from '@/firebase/server';
+import { auth as nextAuth } from '@/app/api/auth/[...nextauth]/route';
 import { z } from 'zod';
 
 const CreateInvoiceSchema = z.object({
@@ -9,29 +9,12 @@ const CreateInvoiceSchema = z.object({
     tokens: z.coerce.number().int().positive('Tokens must be a positive integer.'),
 });
 
-async function getUserIdFromIdToken(idToken: string): Promise<string | null> {
-    try {
-        const { auth: adminAuth } = getFirebase();
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
-        return decodedToken.uid;
-    } catch (error) {
-        console.error('Error verifying ID token in API route:', error);
-        return null;
-    }
-}
-
 export async function POST(request: NextRequest) {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
+    const session = await nextAuth();
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized: You must be logged in.' }, { status: 401 });
     }
-
-    const idToken = authHeader.split('Bearer ')[1];
-    const userId = await getUserIdFromIdToken(idToken);
-
-    if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized: Invalid token.' }, { status: 401 });
-    }
+    const userId = session.user.id;
 
     let reqBody;
     try {

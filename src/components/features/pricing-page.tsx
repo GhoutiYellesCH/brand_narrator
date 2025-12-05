@@ -5,10 +5,11 @@ import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useUser } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { createAndRedirectToNowPaymentsInvoice } from '@/lib/payment-actions';
+import { useRouter } from 'next/navigation';
+
 
 const tokenPackages = [
   {
@@ -59,44 +60,54 @@ const tokenPackages = [
 
 type Package = (typeof tokenPackages)[0];
 
-function BuyButton({
-  isPopular,
-  disabled,
-  isProcessing,
-}: {
-  isPopular: boolean;
-  disabled: boolean;
-  isProcessing: boolean;
-}) {
-  const cta = 'Buy Tokens';
-  return (
-    <Button
-      className="w-full"
-      variant={isPopular ? 'default' : 'outline'}
-      type="submit"
-      disabled={disabled || isProcessing}
-    >
-      {isProcessing ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      ) : (
-        <Diamond className="mr-2 h-4 w-4" />
-      )}
-      {isProcessing ? 'Processing...' : cta}
-    </Button>
-  );
-}
 
 export function PricingPage() {
   const { user, isUserLoading } = useUser();
+  const auth = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
 
-  const handleFormAction = async (formData: FormData) => {
-    const planName = formData.get('packageName') as string;
-    setProcessingPlan(planName);
+  const handleBuyClick = async (plan: Package) => {
+    if (!user) {
+        toast({
+            variant: 'destructive',
+            title: 'Authentication Error',
+            description: 'You must be logged in to purchase tokens.',
+        });
+        return;
+    }
+    
+    setProcessingPlan(plan.name);
 
     try {
-      await createAndRedirectToNowPaymentsInvoice(formData);
+        const idToken = await user.getIdToken();
+
+        const response = await fetch('/api/create-invoice', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`,
+            },
+            body: JSON.stringify({
+                price: plan.priceUSD,
+                packageName: plan.name,
+                tokens: plan.tokens,
+            }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to create payment invoice.');
+        }
+
+        if (result.invoiceUrl) {
+            router.push(result.invoiceUrl);
+        } else {
+            throw new Error('Failed to retrieve invoice URL from payment provider.');
+        }
+
     } catch (error: any) {
         console.error('Error creating invoice:', error);
         toast({
@@ -108,6 +119,7 @@ export function PricingPage() {
         setProcessingPlan(null);
     }
   };
+
 
   const isButtonDisabled = isUserLoading || !user;
 
@@ -152,16 +164,19 @@ export function PricingPage() {
                 </ul>
               </CardContent>
               <CardFooter>
-                 <form action={handleFormAction} className="w-full">
-                    <input type="hidden" name="price" value={plan.priceUSD} />
-                    <input type="hidden" name="packageName" value={plan.name} />
-                    <input type="hidden" name="tokens" value={plan.tokens} />
-                    <BuyButton
-                        isPopular={plan.popular} 
-                        disabled={isButtonDisabled}
-                        isProcessing={processingPlan === plan.name}
-                    />
-                 </form>
+                 <Button
+                    className="w-full"
+                    variant={plan.popular ? 'default' : 'outline'}
+                    disabled={isButtonDisabled || processingPlan === plan.name}
+                    onClick={() => handleBuyClick(plan)}
+                >
+                    {processingPlan === plan.name ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Diamond className="mr-2 h-4 w-4" />
+                    )}
+                    {processingPlan === plan.name ? 'Processing...' : 'Buy Tokens'}
+                </Button>
               </CardFooter>
           </Card>
         ))}

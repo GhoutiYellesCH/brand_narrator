@@ -1,0 +1,205 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model. All user-generated
+ * data is stored in subcollections under that user's unique document ID (`/users/{userId}`).
+ * This creates a secure "silo" for each user, ensuring that they can only access their own
+ * information.
+ *
+ * Data Structure: The entire data model is hierarchical, starting with the top-level `/users`
+ * collection. Each user document at `/users/{userId}` serves as the root for all their
+ * associated data, including brand stories, subscriptions, and payment transactions. This
+ * path-based ownership is the primary mechanism for authorization.
+ *
+ * Key Security Decisions:
+ * - User Isolation: Users are strictly isolated from one another. It is impossible for one
+ *   user to read, write, or even discover the existence of another user's data.
+ * - No Public Data: There are no publicly readable collections. All access requires
+ *   authentication.
+ * - No User Listing: The top-level `/users` collection is not listable, preventing any
+ *   enumeration of the application's user base.
+ * - Default Deny: The security posture is to deny all requests by default, granting access
+ *   only through explicit `allow` statements.
+ *
+ * Denormalization for Authorization: The hierarchical structure, where all data is nested
+ * under a user's ID, is a form of structural denormalization. It encodes ownership directly
+ * into the document path, making authorization checks extremely fast and efficient, as they
+ * do not require reading other documents (i.e., no `get()` or `exists()` calls).
+ *
+ * Structural Segregation: All data is considered private to the user who owns it. There is
+ * no concept of public vs. private data within the same collection, so segregation into
+ * separate top-level collections is not necessary. The user-siloed structure provides the
+ * required security boundary.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    // ------------------------------------
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the given userId.
+     * This is the primary function for enforcing data ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document. Used for update/delete operations
+     * to prevent modification of non-existent data.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates that a user is creating their own profile document and that the
+     * internal 'id' field matches their UID for relational integrity.
+     */
+    function isCreatingOwnProfile(userId) {
+      return isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    /**
+     * Validates that a user is updating their own profile and that the 'id'
+     * field remains unchanged.
+     */
+    function isUpdatingOwnProfile(userId) {
+      return isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+    }
+
+    /**
+     * Validates a new user-owned document. Checks for ownership via path and
+     * ensures the internal `userId` field matches the path for data integrity.
+     */
+    function isCreatingOwnedDoc(userId) {
+      return isOwner(userId) && request.resource.data.userId == userId;
+    }
+
+    /**
+     * Validates updates to a user-owned document. Checks for ownership and ensures
+     * the internal `userId` field is immutable.
+     */
+    function isUpdatingOwnedDoc(userId) {
+      return isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+    }
+
+
+    // Collection Rules
+    // ------------------------------------
+
+    /**
+     * @description Manages user profile documents.
+     * @path /users/{userId}
+     * @allow (create) A new user creating their own profile document.
+     * @allow (get, update, delete) The user accessing or modifying their own profile.
+     * @deny (list) Listing all users in the application is forbidden.
+     * @deny (get) A user trying to access another user's profile.
+     * @principle Restricts access to a user's own data tree and allows self-creation of the root profile.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isCreatingOwnProfile(userId);
+      allow update: if isUpdatingOwnProfile(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages user subscriptions.
+     * @path /users/{userId}/subscriptions/{subscriptionId}
+     * @allow (create, get, list, update, delete) The user managing their own subscription records.
+     * @deny (get) A user trying to access another user's subscription.
+     * @principle Enforces document ownership for all operations within a user's private subcollection.
+     */
+    match /users/{userId}/subscriptions/{subscriptionId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isCreatingOwnedDoc(userId);
+      allow update: if isUpdatingOwnedDoc(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages payment transactions for a user's subscription.
+     * @path /users/{userId}/subscriptions/{subscriptionId}/paymentTransactions/{paymentTransactionId}
+     * @allow (create, get, list, update, delete) The user managing their own payment history.
+     * @deny (get) A user trying to access another user's payment history.
+     * @principle Secures nested user data by verifying ownership based on the path.
+     */
+    match /users/{userId}/subscriptions/{subscriptionId}/paymentTransactions/{paymentTransactionId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages the brand stories created by a user.
+     * @path /users/{userId}/brandStories/{brandStoryId}
+     * @allow (create, get, list, update, delete) The user managing their own brand stories.
+     * @deny (get) A user trying to access another user's brand story.
+     * @principle Enforces document ownership and validates relational integrity via the 'userId' field.
+     */
+    match /users/{userId}/brandStories/{brandStoryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isCreatingOwnedDoc(userId);
+      allow update: if isUpdatingOwnedDoc(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages AI prompts related to a user's brand story.
+     * @path /users/{userId}/brandStories/{brandStoryId}/aiPrompts/{aiPromptId}
+     * @allow (create, get, list, update, delete) The user managing their own AI prompts.
+     * @deny (get) A user trying to access AI prompts from another user's brand story.
+     * @principle Secures deeply nested user data by verifying ownership based on the path.
+     */
+    match /users/{userId}/brandStories/{brandStoryId}/aiPrompts/{aiPromptId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages social media posts derived from a user's brand story.
+     * @path /users/{userId}/brandStories/{brandStoryId}/socialMediaPosts/{socialMediaPostId}
+     * @allow (create, get, list, update, delete) The user managing their own social media posts.
+     * @deny (get) A user trying to access another user's social media posts.
+     * @principle Secures nested user data by verifying ownership based on the path.
+     */
+    match /users/{userId}/brandStories/{brandStoryId}/socialMediaPosts/{socialMediaPostId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Manages analytics for a specific social media post.
+     * @path /users/{userId}/brandStories/{brandStoryId}/socialMediaPosts/{socialMediaPostId}/contentAnalytics/{contentAnalyticId}
+     * @allow (create, get, list, update, delete) The user viewing analytics for their own posts.
+     * @deny (get) A user trying to access analytics for another user's posts.
+     * @principle Secures deeply nested user data by verifying ownership based on the path.
+     */
+    match /users/{userId}/brandStories/{brandStoryId}/socialMediaPosts/{socialMediaPostId}/contentAnalytics/{contentAnalyticId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}

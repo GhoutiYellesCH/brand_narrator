@@ -1,0 +1,510 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the BrandNarrator application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the user account was created.",
+          "format": "date-time"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "Timestamp indicating the last time the user logged in.",
+          "format": "date-time"
+        },
+        "activeSubscriptionId": {
+          "type": "string",
+          "description": "Reference to Subscription. (Relationship: User 1:1 Subscription)"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "name",
+        "createdAt"
+      ]
+    },
+    "Subscription": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subscription",
+      "type": "object",
+      "description": "Represents a user's subscription plan and payment status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the subscription."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:1 Subscription)"
+        },
+        "planName": {
+          "type": "string",
+          "description": "Name of the subscription plan (e.g., Basic, Premium)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "Date when the subscription started.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "Date when the subscription expires.",
+          "format": "date-time"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method used for the subscription (e.g., credit card, crypto)."
+        },
+        "paymentTransactionId": {
+          "type": "string",
+          "description": "Reference to PaymentTransaction. (Relationship: Subscription 1:1 PaymentTransaction)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Subscription status (e.g., active, inactive, pending)."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "planName",
+        "startDate",
+        "endDate",
+        "paymentMethod",
+        "status"
+      ]
+    },
+    "PaymentTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PaymentTransaction",
+      "type": "object",
+      "description": "Represents a payment transaction processed via NOWPayments.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment transaction."
+        },
+        "subscriptionId": {
+          "type": "string",
+          "description": "Reference to Subscription. (Relationship: Subscription 1:1 PaymentTransaction)"
+        },
+        "paymentId": {
+          "type": "string",
+          "description": "The payment ID returned by NOWPayments."
+        },
+        "payinAddress": {
+          "type": "string",
+          "description": "The cryptocurrency address where the payment was sent."
+        },
+        "payoutAddress": {
+          "type": "string",
+          "description": "The cryptocurrency address where the payment was sent."
+        },
+        "paymentStatus": {
+          "type": "string",
+          "description": "The status of the payment (e.g., confirmed, sending, waiting, finished, failed, refunded)."
+        },
+        "paymentCurrency": {
+          "type": "string",
+          "description": "The cryptocurrency or fiat currency used for payment."
+        },
+        "paymentAmount": {
+          "type": "number",
+          "description": "The amount paid in the payment currency."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the payment transaction was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "subscriptionId",
+        "paymentId",
+        "paymentStatus",
+        "paymentCurrency",
+        "paymentAmount",
+        "createdAt"
+      ]
+    },
+    "BrandStory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BrandStory",
+      "type": "object",
+      "description": "Represents the generated brand story for a user's startup.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the brand story."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N BrandStory)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the brand story."
+        },
+        "content": {
+          "type": "string",
+          "description": "The generated narrative content of the brand story."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the brand story was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the brand story was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "content",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SocialMediaPost": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SocialMediaPost",
+      "type": "object",
+      "description": "Represents a scheduled social media post.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the social media post."
+        },
+        "brandStoryId": {
+          "type": "string",
+          "description": "Reference to BrandStory. (Relationship: BrandStory 1:N SocialMediaPost)"
+        },
+        "platform": {
+          "type": "string",
+          "description": "The social media platform for the post (e.g., Facebook, Twitter, Instagram)."
+        },
+        "content": {
+          "type": "string",
+          "description": "The content of the social media post."
+        },
+        "scheduledTime": {
+          "type": "string",
+          "description": "Date and time when the post is scheduled to be published.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the post (e.g., scheduled, published, failed)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the social media post was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the social media post was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "brandStoryId",
+        "platform",
+        "content",
+        "scheduledTime",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AIPrompt": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AIPrompt",
+      "type": "object",
+      "description": "Represents an AI-optimized prompt generated for different AI platforms.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AI prompt."
+        },
+        "brandStoryId": {
+          "type": "string",
+          "description": "Reference to BrandStory. (Relationship: BrandStory 1:N AIPrompt)"
+        },
+        "platform": {
+          "type": "string",
+          "description": "The AI platform for which the prompt is designed (e.g., GPT-3, Bard)."
+        },
+        "promptText": {
+          "type": "string",
+          "description": "The AI-optimized prompt text."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the AI prompt was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the AI prompt was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "brandStoryId",
+        "platform",
+        "promptText",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ContentAnalytic": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ContentAnalytic",
+      "type": "object",
+      "description": "Represents the analytics data for a specific social media post.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the content analytics."
+        },
+        "socialMediaPostId": {
+          "type": "string",
+          "description": "Reference to SocialMediaPost. (Relationship: SocialMediaPost 1:1 ContentAnalytic)"
+        },
+        "impressions": {
+          "type": "number",
+          "description": "Number of impressions the post received."
+        },
+        "clicks": {
+          "type": "number",
+          "description": "Number of clicks the post received."
+        },
+        "likes": {
+          "type": "number",
+          "description": "Number of likes the post received."
+        },
+        "shares": {
+          "type": "number",
+          "description": "Number of shares the post received."
+        },
+        "comments": {
+          "type": "number",
+          "description": "Number of comments the post received."
+        },
+        "engagementRate": {
+          "type": "number",
+          "description": "The calculated engagement rate of the post."
+        },
+        "dateAnalyzed": {
+          "type": "string",
+          "description": "Timestamp indicating when the analytics data was captured.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "socialMediaPostId",
+        "impressions",
+        "clicks",
+        "likes",
+        "shares",
+        "comments",
+        "engagementRate",
+        "dateAnalyzed"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. The `userId` parameter is the Firebase Auth UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, corresponding to their Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/brandStories/{brandStoryId}",
+        "definition": {
+          "entityName": "BrandStory",
+          "schema": {
+            "$ref": "#/backend/entities/BrandStory"
+          },
+          "description": "Stores brand stories created by the user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "brandStoryId",
+              "description": "The unique identifier for the brand story."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/brandStories/{brandStoryId}/socialMediaPosts/{socialMediaPostId}",
+        "definition": {
+          "entityName": "SocialMediaPost",
+          "schema": {
+            "$ref": "#/backend/entities/SocialMediaPost"
+          },
+          "description": "Stores social media posts associated with a brand story.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "brandStoryId",
+              "description": "The unique identifier for the brand story."
+            },
+            {
+              "name": "socialMediaPostId",
+              "description": "The unique identifier for the social media post."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/brandStories/{brandStoryId}/aiPrompts/{aiPromptId}",
+        "definition": {
+          "entityName": "AIPrompt",
+          "schema": {
+            "$ref": "#/backend/entities/AIPrompt"
+          },
+          "description": "Stores AI prompts generated for a brand story.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "brandStoryId",
+              "description": "The unique identifier for the brand story."
+            },
+            {
+              "name": "aiPromptId",
+              "description": "The unique identifier for the AI prompt."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/brandStories/{brandStoryId}/socialMediaPosts/{socialMediaPostId}/contentAnalytics/{contentAnalyticId}",
+        "definition": {
+          "entityName": "ContentAnalytic",
+          "schema": {
+            "$ref": "#/backend/entities/ContentAnalytic"
+          },
+          "description": "Stores content analytics for social media posts.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "brandStoryId",
+              "description": "The unique identifier for the brand story."
+            },
+            {
+              "name": "socialMediaPostId",
+              "description": "The unique identifier for the social media post."
+            },
+            {
+              "name": "contentAnalyticId",
+              "description": "The unique identifier for the content analytic."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/subscriptions/{subscriptionId}",
+        "definition": {
+          "entityName": "Subscription",
+          "schema": {
+            "$ref": "#/backend/entities/Subscription"
+          },
+          "description": "Stores subscription details for the user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "subscriptionId",
+              "description": "The unique identifier for the subscription."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/subscriptions/{subscriptionId}/paymentTransactions/{paymentTransactionId}",
+        "definition": {
+          "entityName": "PaymentTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/PaymentTransaction"
+          },
+          "description": "Stores payment transactions for a subscription.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "subscriptionId",
+              "description": "The unique identifier for the subscription."
+            },
+            {
+              "name": "paymentTransactionId",
+              "description": "The unique identifier for the payment transaction."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability. User data and their associated brand stories, social media posts, AI prompts, content analytics, subscriptions, and payment transactions are organized in a hierarchical manner under the `/users/{userId}` collection. This approach provides clear ownership and simplifies security rules. Subscriptions and payment transactions are separated out into dedicated subcollections to facilitate secure querying and management of subscription statuses and payment histories. This design avoids the use of `get()` calls in security rules, promoting atomic operations and simplifies debugging. The structure also explicitly addresses the need for easy listing of user-owned entities, thus fulfilling the QAPs requirement. Denormalization is not explicitly required as all data is user-owned and path-based. This inherently provides authorization independence. The structure also supports invariants such as ownership (via the path) and timestamps."
+  }
+}

@@ -13,8 +13,8 @@ import {
   generateBrandStory,
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
-import { headers } from 'next/headers';
 import { FieldValue } from 'firebase-admin/firestore';
+import { headers } from 'next/headers';
 
 const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
 
@@ -50,7 +50,11 @@ async function checkAndDeductTokens(userId: string, amount: number, details: { c
     // For interactive chat, 1 token is deducted every 10 messages
     if (details.chatMessageCount !== undefined) {
       const newTotalMessages = (userData.chatMessagesSent || 0) + 1;
-      cost = (newTotalMessages % 10 === 0) ? 1 : 0;
+      if ((newTotalMessages % 10 === 0) && newTotalMessages > 0) {
+        cost = 1;
+      } else {
+        cost = 0;
+      }
       transaction.update(userRef, { chatMessagesSent: newTotalMessages });
     }
 
@@ -316,7 +320,8 @@ export async function createNowPaymentsInvoice(
 
     const invoice = await response.json();
     
-    // Temporarily disabling transaction logging to unblock development
+    // Temporarily disabled to unblock development.
+    // This can be re-enabled once server auth is fully configured.
     // try {
     //   const transactionRef = serverFirestore.collection('users').doc(userId).collection('paymentTransactions').doc(invoice.id);
     //   await transactionRef.set({
@@ -330,7 +335,6 @@ export async function createNowPaymentsInvoice(
     //   });
     // } catch (dbError) {
     //   console.error("Failed to log transaction to Firestore, but invoice was created:", dbError);
-    //   // Don't block the user, just log the error.
     // }
     
     return { invoiceUrl: invoice.invoice_url };
@@ -357,7 +361,6 @@ export async function updateUserProfileAction(
   prevState: UserProfileState,
   formData: FormData
 ): Promise<UserProfileState> {
-
   const validatedFields = UserProfileFormSchema.safeParse({
     name: formData.get('name'),
     userId: formData.get('userId'),
@@ -371,7 +374,11 @@ export async function updateUserProfileAction(
   
   const { name, userId } = validatedFields.data;
 
-  // Additional check to ensure userId is not a placeholder value from a logged-out state
+  const sessionUserId = await getUserIdFromServerSession();
+  if (sessionUserId !== userId) {
+      return { error: 'You are not authorized to perform this action.' };
+  }
+
   if (!userId || userId === 'null' || userId === 'undefined') {
     return { error: 'You must be logged in to update your profile.' };
   }
@@ -390,4 +397,59 @@ export async function updateUserProfileAction(
     console.error('Error updating user profile:', error);
     return { error: 'Failed to update your profile. Please try again.' };
   }
+}
+
+
+// Password Change Action
+const PasswordChangeStateSchema = z.object({
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+  fieldErrors: z.record(z.string()).optional(),
+});
+export type PasswordChangeState = z.infer<typeof PasswordChangeStateSchema>;
+
+const PasswordChangeFormSchema = z.object({
+    password: z.string().min(6, 'Password must be at least 6 characters.'),
+    confirmPassword: z.string(),
+    userId: z.string().min(1, 'User ID is required.'),
+}).refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+});
+
+export async function changePasswordAction(
+    prevState: PasswordChangeState,
+    formData: FormData
+): Promise<PasswordChangeState> {
+    const validatedFields = PasswordChangeFormSchema.safeParse(
+        Object.fromEntries(formData.entries())
+    );
+
+    if (!validatedFields.success) {
+        return {
+            fieldErrors: validatedFields.error.flatten().fieldErrors,
+        };
+    }
+
+    const { password, userId } = validatedFields.data;
+
+    const sessionUserId = await getUserIdFromServerSession();
+    if (sessionUserId !== userId) {
+        return { error: 'You are not authorized to perform this action.' };
+    }
+    
+    try {
+        await adminAuth.updateUser(userId, {
+            password: password,
+        });
+
+        revalidatePath('/account');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error changing password:', error);
+        if (error.code === 'auth/requires-recent-login') {
+            return { error: 'This action is sensitive and requires recent authentication. Please sign out and sign back in to change your password.' };
+        }
+        return { error: 'Failed to change password. Please try again.' };
+    }
 }

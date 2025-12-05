@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -13,7 +14,6 @@ import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { updateUserProfileAction, type UserProfileState } from '@/lib/actions';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect } from 'react';
 
 const initialState: UserProfileState = {};
 
@@ -79,7 +79,7 @@ export function AccountForm() {
                     <div className="space-y-2">
                         <Label htmlFor="name">Full Name</Label>
                         <Input id="name" name="name" defaultValue={userProfile?.name || ''} required />
-                        {state.fieldErrors?.name && <p className="text-sm text-destructive">{state.fieldErrors.name}</p>}
+                        {state.fieldErrors?.name && <p className="text-sm text-destructive">{state.fieldErrors.name.join(', ')}</p>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="email">Email Address</Label>

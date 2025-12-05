@@ -1,4 +1,7 @@
+
 import { AccountForm } from '@/components/features/account/account-form';
+import { PasswordChangeForm } from '@/components/features/account/password-change-form';
+import { Separator } from '@/components/ui/separator';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -9,13 +12,21 @@ export const metadata: Metadata = {
 export default function AccountPage() {
     return (
         <div className="space-y-6">
-            <div className="space-y-1.5">
+            <div>
                 <h1 className="text-2xl font-headline">My Account</h1>
                 <p className="text-muted-foreground">
-                    View and edit your personal information.
+                    Manage your account settings, profile, and password.
                 </p>
             </div>
+            
+            <Separator />
+
             <AccountForm />
+
+            <Separator />
+
+            <PasswordChangeForm />
+
         </div>
     );
 }

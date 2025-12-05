@@ -32,9 +32,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     serverActions: {
+      bodySizeLimit: '2mb',
       allowedOrigins: ['localhost:9002', '*.firebase.studio'],
-    }
-  }
+    },
+  },
 };
 
 export default nextConfig;

@@ -6,8 +6,8 @@
  *
  * Data Structure: The entire data model is hierarchical, starting with the top-level `/users`
  * collection. Each user document at `/users/{userId}` serves as the root for all their
- * associated data, including brand stories, subscriptions, and payment transactions. This
- * path-based ownership is the primary mechanism for authorization.
+ * associated data, including brand stories. This path-based ownership is the primary mechanism
+ * for authorization.
  *
  * Key Security Decisions:
  * - User Isolation: Users are strictly isolated from one another. It is impossible for one
@@ -23,11 +23,6 @@
  * under a user's ID, is a form of structural denormalization. It encodes ownership directly
  * into the document path, making authorization checks extremely fast and efficient, as they
  * do not require reading other documents (i.e., no `get()` or `exists()` calls).
- *
- * Structural Segregation: All data is considered private to the user who owns it. There is
- * no concept of public vs. private data within the same collection, so segregation into
- * separate top-level collections is not necessary. The user-siloed structure provides the
- * required security boundary.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -69,10 +64,10 @@ service cloud.firestore {
 
     /**
      * Validates that a user is updating their own profile and that the 'id'
-     * field remains unchanged.
+     * field remains unchanged. Crucially, it prevents the user from modifying
+     * their own token count.
      */
     function isUpdatingOwnProfile(userId) {
-      // Allow user to update njihov own profile, but don't let them change their token count directly.
       let isChangingTokens = request.resource.data.tokens != resource.data.tokens;
       return isExistingOwner(userId) && request.resource.data.id == resource.data.id && !isChangingTokens;
     }
@@ -175,5 +170,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

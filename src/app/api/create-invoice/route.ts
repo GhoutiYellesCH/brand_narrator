@@ -3,8 +3,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebase } from '@/firebase/server';
 import { z } from 'zod';
 
-const { auth: adminAuth } = getFirebase();
-
 const CreateInvoiceSchema = z.object({
     price: z.coerce.number().positive('Price must be a positive number.'),
     packageName: z.string().min(1, 'Package name is required.'),
@@ -13,6 +11,7 @@ const CreateInvoiceSchema = z.object({
 
 async function getUserIdFromIdToken(idToken: string): Promise<string | null> {
     try {
+        const { auth: adminAuth } = getFirebase();
         const decodedToken = await adminAuth.verifyIdToken(idToken);
         return decodedToken.uid;
     } catch (error) {
@@ -80,7 +79,7 @@ export async function POST(request: NextRequest) {
 
         if (!response.ok) {
             console.error('NOWPayments API Error:', invoice);
-            return NextResponse.json({ error: invoice.message || 'Failed to create payment invoice.' }, { status: 500 });
+            return NextResponse.json({ error: invoice.message || 'Failed to create payment invoice.' }, { status: response.status });
         }
 
         if (invoice.invoice_url) {

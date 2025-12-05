@@ -3,8 +3,6 @@ import { getFirebase } from '@/firebase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-const { auth: adminAuth } = getFirebase();
-
 /**
  * Creates a session cookie from a Firebase ID token.
  * This is used for server-side rendering and API routes to maintain user sessions.
@@ -15,6 +13,8 @@ export async function POST(request: NextRequest) {
     if (!idToken) {
       return NextResponse.json({ error: 'ID token is required' }, { status: 400 });
     }
+
+    const { auth: adminAuth } = getFirebase();
 
     // Set session expiration to 5 days.
     const expiresIn = 60 * 60 * 24 * 5 * 1000;

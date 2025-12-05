@@ -10,7 +10,6 @@ import {
   CalendarDays,
   Sparkles,
   BarChart3,
-  Plug,
   Home,
   LogOut,
   CreditCard,
@@ -78,9 +77,6 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               </SidebarNavItem>
               <SidebarNavItem href="/analytics" icon={<BarChart3 />}>
                 Analytics
-              </SidebarNavItem>
-              <SidebarNavItem href="/integrations" icon={<Plug />}>
-                Integrations
               </SidebarNavItem>
               <SidebarNavItem href="/pricing" icon={<CreditCard />}>
                 Pricing

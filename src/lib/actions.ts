@@ -50,9 +50,22 @@ export type BrandStoryState = z.infer<typeof BrandStoryStateSchema>;
 
 const BrandStoryFormSchema = z.object({
   companyName: z.string().min(1, 'Company name is required.'),
-  origins: z.string().min(10, 'Origins story should be at least 10 characters.'),
-  mission: z.string().min(10, 'Mission statement should be at least 10 characters.'),
-  values: z.string().min(10, 'Core values should be at least 10 characters.'),
+  foundingStory: z.string().optional(),
+  problemToSolve: z.string().optional(),
+  ahaMoment: z.string().optional(),
+  foundingTeam: z.string().optional(),
+  founderValues: z.string().optional(),
+  mission: z.string().min(3, 'Mission is required.'),
+  vision: z.string().optional(),
+  values: z.string().min(3, 'Core values are required.'),
+  products: z.string().optional(),
+  uniqueProblem: z.string().optional(),
+  valueProposition: z.string().optional(),
+  idealCustomer: z.string().optional(),
+  customerPainPoints: z.string().optional(),
+  customerFeeling: z.string().optional(),
+  competitors: z.string().optional(),
+  differentiation: z.string().optional(),
   storyConversation: z.string().optional(),
   additionalInfo: z.string().optional(),
 });
@@ -61,14 +74,9 @@ export async function generateBrandStoryAction(
   prevState: BrandStoryState,
   formData: FormData
 ): Promise<BrandStoryState> {
-  const validatedFields = BrandStoryFormSchema.safeParse({
-    companyName: formData.get('companyName'),
-    origins: formData.get('origins'),
-    mission: formData.get('mission'),
-    values: formData.get('values'),
-    storyConversation: formData.get('storyConversation'),
-    additionalInfo: formData.get('additionalInfo'),
-  });
+  const validatedFields = BrandStoryFormSchema.safeParse(
+    Object.fromEntries(formData.entries())
+  );
 
   if (!validatedFields.success) {
     return {
@@ -82,7 +90,7 @@ export async function generateBrandStoryAction(
     return { brandStory: result.brandStory };
   } catch (error) {
     console.error(error);
-    return { error: 'Failed to generate brand story. Please try again.' };
+    return { error: 'Failed to generate brand story. The AI model may be temporarily unavailable.' };
   }
 }
 

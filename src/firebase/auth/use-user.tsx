@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useAuth } from '@/firebase';
+import { useAuth } from '@/firebase/provider';
 import { onIdTokenChanged, signInWithCustomToken, type User } from 'firebase/auth';
 
 export interface UseUser {
@@ -20,7 +20,7 @@ export function useUser(): UseUser {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (newUser) => {
+    const unsubscribe = onIdTokenChanged(auth, (newUser) => {
         setUser(newUser);
         setIsLoading(false);
     });
@@ -41,8 +41,8 @@ export function useUser(): UseUser {
       setIsLoading(false);
       return;
     }
-    if (status === 'authenticated' && session.firebaseToken && !auth.currentUser) {
-        // If we have a Firebase token from NextAuth but are not signed into Firebase, sign in
+    // If we have a Firebase token from NextAuth but are not signed into Firebase, sign in
+    if (status === 'authenticated' && session.firebaseToken && auth.currentUser?.uid !== session.user.id) {
         signInWithCustomToken(auth, session.firebaseToken).catch((error) => {
             console.error("Error signing in with custom token:", error);
         });

@@ -30,8 +30,9 @@ const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
 // to get the authenticated user's ID on the server.
 const getUserId = async () => {
     try {
-        const user = (await adminAuth.listUsers(1)).users[0];
-        return user?.uid;
+        // In a real app, you would get the user from the session/auth context
+        // For now, we use a placeholder to avoid breaking local dev
+        return 'placeholder-user-id';
     } catch (e) {
         console.warn("Could not get user. Falling back to placeholder. This is normal in local dev.", e);
         return 'placeholder-user-id';
@@ -67,6 +68,10 @@ export async function getAiStoryResponse(
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
   }
+  
+  if (!brandStoryId) {
+    return { error: 'Brand Story ID is missing.' };
+  }
 
   try {
     await checkAndDeductTokens(userId, 1); // Deduct 1 token per message
@@ -77,12 +82,10 @@ export async function getAiStoryResponse(
     });
 
     // Save the updated conversation history to Firestore non-blockingly
-    if (brandStoryId) {
-      const storyRef = doc(serverFirestore, 'users', userId, 'brandStories', brandStoryId);
-      updateDoc(storyRef, { storyConversation: response.updatedConversationHistory }).catch(
-        (e) => console.error('Failed to save conversation history:', e)
-      );
-    }
+    const storyRef = doc(serverFirestore, 'users', userId, 'brandStories', brandStoryId);
+    updateDoc(storyRef, { storyConversation: response.updatedConversationHistory }).catch(
+      (e) => console.error('Failed to save conversation history:', e)
+    );
 
     revalidatePath('/story-gathering');
     return {
@@ -323,5 +326,3 @@ export async function createNowPaymentsInvoice(
     return { error: error.message || 'An unexpected error occurred.' };
   }
 }
-
-    

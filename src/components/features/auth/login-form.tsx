@@ -75,7 +75,7 @@ export function LoginForm() {
       values: '',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
-    });
+    }, { merge: true });
   };
 
   const handleAuthSuccess = async (firebaseUser: FirebaseUser, isAnonymous = false) => {
@@ -110,7 +110,11 @@ export function LoginForm() {
         const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
         await handleAuthSuccess(userCredential.user);
       } else {
-        await signInWithEmailAndPassword(auth, data.email, data.password);
+        const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+        // On sign-in, just ensure the profile exists, don't overwrite
+        const userRef = doc(firestore, 'users', userCredential.user.uid);
+        await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
+
       }
     } catch (error) {
       handleAuthError(error as AuthError);
@@ -184,5 +188,3 @@ export function LoginForm() {
     </Card>
   );
 }
-
-    

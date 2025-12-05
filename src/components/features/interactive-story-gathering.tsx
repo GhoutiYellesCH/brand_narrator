@@ -65,7 +65,7 @@ export function InteractiveStoryGathering() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!input.trim() || !user) return;
+    if (!input.trim() || !user || !brandStory) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -76,7 +76,7 @@ export function InteractiveStoryGathering() {
     setInput('');
     
     startTransition(async () => {
-      const result = await getAiStoryResponse(input, conversationHistory, 'default');
+      const result = await getAiStoryResponse(input, conversationHistory, brandStory.id);
       if (result.error) {
         toast({
             variant: "destructive",
@@ -187,5 +187,3 @@ export function InteractiveStoryGathering() {
     </div>
   );
 }
-
-    

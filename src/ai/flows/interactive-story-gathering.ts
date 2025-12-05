@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -27,7 +28,7 @@ export type InteractiveStoryGatheringInput = z.infer<
   typeof InteractiveStoryGatheringInputSchema
 >;
 
-const InteractiveStoryGatheringOutputSchema = z..object({
+const InteractiveStoryGatheringOutputSchema = z.object({
   aiResponse: z
     .string()
     .describe('The AI response, either asking for more information or confirming story details.'),

@@ -74,6 +74,7 @@ export function AccountForm() {
                 <CardDescription>Update your name and email address.</CardDescription>
             </CardHeader>
             <form action={formAction}>
+                <input type="hidden" name="userId" value={user?.uid} />
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="name">Full Name</Label>

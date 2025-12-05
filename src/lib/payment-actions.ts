@@ -3,9 +3,8 @@
 
 import { z } from 'zod';
 import { getFirebase } from '@/firebase/server';
-import { FieldValue } from 'firebase-admin/firestore';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 const { auth: adminAuth } = getFirebase();
 
@@ -23,6 +22,7 @@ async function getUserIdFromServerSession(): Promise<string | null> {
         return null;
     }
 }
+
 
 // NOWPayments Integration Action
 const CreateInvoiceSchema = z.object({

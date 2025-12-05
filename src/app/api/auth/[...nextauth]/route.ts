@@ -126,27 +126,13 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
         if (user) {
-            // On sign in, add user id to the token
             token.id = user.id;
         }
-
-        // Create a custom token for client-side Firebase auth
-        if (token.id) {
-            try {
-                token.firebaseToken = await adminAuth.createCustomToken(token.id as string);
-            } catch (error) {
-                console.error("Error creating custom Firebase token:", error);
-            }
-        }
-
         return token;
     },
     async session({ session, token }) {
         if (session.user && token.id) {
             session.user.id = token.id as string;
-        }
-        if (token.firebaseToken) {
-            session.firebaseToken = token.firebaseToken as string;
         }
         return session;
     },

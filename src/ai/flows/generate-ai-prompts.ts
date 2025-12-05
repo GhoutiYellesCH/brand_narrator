@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -10,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { googleAI }s from '@genkit-ai/google-genai';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const GenerateAiPromptsInputSchema = z.object({
   brandDescription: z
@@ -36,7 +37,7 @@ const prompt = ai.definePrompt({
   name: 'generateAiPromptsPrompt',
   input: {schema: GenerateAiPromptsInputSchema},
   output: {schema: GenerateAiPromptsOutputSchema},
-  model: googleAI('gemini-2.5-flash'),
+  model: googleAI('gemini-1.5-flash', { apiKey: process.env.GEMINI_API_KEY }),
   prompt: `You are an AI prompt engineer specializing in crafting prompts for various AI platforms to generate marketing content.
 
   Based on the provided brand description, target audience, content goal, and AI platform, generate an AI-optimized prompt and instructions on how to use it effectively.

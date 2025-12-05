@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -12,14 +13,19 @@ import {
   Home,
   LogOut,
   CreditCard,
-  Diamond,
-  User,
+  User as UserIcon,
 } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getAuth, signOut } from 'firebase/auth';
+import { getAuth, signOut as clientSignOut, type User } from 'firebase/auth';
 import { useEffect } from 'react';
 
 const publicRoutes = ['/login', '/'];
+
+// Server action to clear the session cookie
+async function signOut() {
+  await fetch('/api/auth/session', { method: 'DELETE' });
+}
+
 
 export default function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -42,7 +48,11 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
   }, [user, isUserLoading, pathname, router]);
 
   const handleSignOut = async () => {
-    await signOut(auth);
+    // Sign out from Firebase client
+    await clientSignOut(auth);
+    // Sign out from server session
+    await signOut();
+    // Redirect to login
     router.push('/login');
   };
 
@@ -85,7 +95,7 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               <SidebarNavItem href="/pricing" icon={<CreditCard />}>
                 Get Tokens
               </SidebarNavItem>
-              <SidebarNavItem href="/account" icon={<User />}>
+              <SidebarNavItem href="/account" icon={<UserIcon />}>
                 My Account
               </SidebarNavItem>
             </SidebarNav>

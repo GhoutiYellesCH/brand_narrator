@@ -1,11 +1,12 @@
+
 'use client';
 
 import { Check, Diamond, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { useState, useTransition } from 'react';
-import { createNowPaymentsInvoice } from '@/lib/actions';
+import { useTransition } from 'react';
+import { createNowPaymentsInvoice } from '@/lib/payment-actions';
 import { useToast } from '@/hooks/use-toast';
 import { useFormStatus } from 'react-dom';
 
@@ -80,19 +81,22 @@ function BuyButton({ planName, cta, isPopular }: { planName: string; cta: string
 
 export function PricingPage() {
   const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
-  const handleFormAction = async (formData: FormData) => {
-    const result = await createNowPaymentsInvoice(formData);
+  const handleFormAction = (formData: FormData) => {
+    startTransition(async () => {
+      const result = await createNowPaymentsInvoice(formData);
 
-    if (result.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Payment Error',
-        description: result.error,
-      });
-    } else if (result.invoiceUrl) {
-      window.location.href = result.invoiceUrl;
-    }
+      if (result.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Payment Error',
+          description: result.error,
+        });
+      } else if (result.invoiceUrl) {
+        window.location.href = result.invoiceUrl;
+      }
+    });
   };
 
   return (

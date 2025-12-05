@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { changePasswordAction, type PasswordChangeState } from '@/lib/actions';
+import { changePasswordAction, type PasswordChangeState } from '@/lib/user-actions';
 import { useToast } from '@/hooks/use-toast';
 
 const initialState: PasswordChangeState = {};

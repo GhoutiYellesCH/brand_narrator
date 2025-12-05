@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { updateUserProfileAction, type UserProfileState } from '@/lib/actions';
+import { updateUserProfileAction, type UserProfileState } from '@/lib/user-actions';
 import { useToast } from '@/hooks/use-toast';
 
 const initialState: UserProfileState = {};

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -30,6 +31,19 @@ const loginSchema = z.object({
 
 type LoginSchema = z.infer<typeof loginSchema>;
 
+async function createSession(idToken: string) {
+    const res = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+  
+    if (!res.ok) {
+      throw new Error('Failed to create session');
+    }
+  }
+  
+
 export function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -54,6 +68,7 @@ export function LoginForm() {
   }, [user, isUserLoading, router]);
 
   const createUserProfile = async (firebaseUser: FirebaseUser, isAnonymous = false) => {
+    if (!firestore) return;
     const userRef = doc(firestore, 'users', firebaseUser.uid);
     const userProfile = {
       id: firebaseUser.uid,
@@ -80,7 +95,10 @@ export function LoginForm() {
 
   const handleAuthSuccess = async (firebaseUser: FirebaseUser, isAnonymous = false) => {
     await createUserProfile(firebaseUser, isAnonymous);
-    // The useEffect will handle redirection
+    const idToken = await firebaseUser.getIdToken();
+    await createSession(idToken);
+    setIsLoading(false);
+    router.push('/dashboard');
   };
 
   const handleAuthError = (error: AuthError) => {
@@ -103,6 +121,7 @@ export function LoginForm() {
   };
 
   const onSubmit: SubmitHandler<LoginSchema> = async (data) => {
+    if(!auth || !firestore) return;
     setIsLoading(true);
     setAuthError(null);
     try {
@@ -111,10 +130,13 @@ export function LoginForm() {
         await handleAuthSuccess(userCredential.user);
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
-        // On sign-in, just ensure the profile exists, don't overwrite
+        // On sign-in, just ensure the profile exists and log the session
         const userRef = doc(firestore, 'users', userCredential.user.uid);
         await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
-
+        const idToken = await userCredential.user.getIdToken();
+        await createSession(idToken);
+        setIsLoading(false);
+        router.push('/dashboard');
       }
     } catch (error) {
       handleAuthError(error as AuthError);
@@ -122,6 +144,7 @@ export function LoginForm() {
   };
 
   const handleAnonymousSignIn = async () => {
+    if(!auth || !firestore) return;
     setIsLoading(true);
     setAuthError(null);
     try {

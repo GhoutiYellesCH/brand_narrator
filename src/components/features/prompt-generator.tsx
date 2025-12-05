@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useActionState, useState, useEffect, useMemo } from 'react';
@@ -20,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { generateAiPromptsAction, type PromptGeneratorState } from '@/lib/actions';
+import { generateAiPromptsAction, type PromptGeneratorState } from '@/lib/ai-actions';
 import { Loader2, Sparkles, Copy, Check } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Input } from '../ui/input';
@@ -112,7 +113,7 @@ export function PromptGenerator() {
                 onChange={(e) => setBrandDescription(e.target.value)}
                 disabled={isLoading}
               />
-              {state.fieldErrors?.brandDescription && <p className="text-sm text-destructive">{state.fieldErrors.brandDescription}</p>}
+              {state.fieldErrors?.brandDescription && <p className="text-sm text-destructive">{state.fieldErrors.brandDescription.join(', ')}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="targetAudience">Target Audience</Label>
@@ -123,7 +124,7 @@ export function PromptGenerator() {
                 required
                 disabled={isLoading}
               />
-              {state.fieldErrors?.targetAudience && <p className="text-sm text-destructive">{state.fieldErrors.targetAudience}</p>}
+              {state.fieldErrors?.targetAudience && <p className="text-sm text-destructive">{state.fieldErrors.targetAudience.join(', ')}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="contentGoal">Content Goal</Label>
@@ -134,7 +135,7 @@ export function PromptGenerator() {
                 required
                 disabled={isLoading}
               />
-              {state.fieldErrors?.contentGoal && <p className="text-sm text-destructive">{state.fieldErrors.contentGoal}</p>}
+              {state.fieldErrors?.contentGoal && <p className="text-sm text-destructive">{state.fieldErrors.contentGoal.join(', ')}</p>}
             </div>
             <div className="space-y-2">
                 <Label>AI Platform</Label>
@@ -149,7 +150,7 @@ export function PromptGenerator() {
                         <SelectItem value="DALL-E">DALL-E (for images)</SelectItem>
                     </SelectContent>
                 </Select>
-                {state.fieldErrors?.platform && <p className="text-sm text-destructive">{state.fieldErrors.platform}</p>}
+                {state.fieldErrors?.platform && <p className="text-sm text-destructive">{state.fieldErrors.platform.join(', ')}</p>}
             </div>
             {state.error && (
                 <Alert variant="destructive" className="mt-6">

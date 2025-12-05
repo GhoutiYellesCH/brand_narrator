@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { generateBrandStoryAction, type BrandStoryState } from '@/lib/actions';
+import { generateBrandStoryAction, type BrandStoryState } from '@/lib/ai-actions';
 import { Loader2, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -106,17 +106,17 @@ export function BrandStoryGenerator() {
                         <div className="space-y-2">
                             <Label htmlFor="companyName">Company Name</Label>
                             <Input id="companyName" name="companyName" placeholder="e.g., Innovate Inc." required value={formValues.companyName || ''} onChange={handleInputChange} />
-                            {state.fieldErrors?.companyName && <p className="text-sm text-destructive">{state.fieldErrors.companyName}</p>}
+                            {state.fieldErrors?.companyName && <p className="text-sm text-destructive">{state.fieldErrors.companyName.join(', ')}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="mission">Mission / Purpose</Label>
                             <Textarea id="mission" name="mission" placeholder="e.g., To empower small businesses with the tools to build their brand narrative." required value={formValues.mission || ''} onChange={handleInputChange} />
-                            {state.fieldErrors?.mission && <p className="text-sm text-destructive">{state.fieldErrors.mission}</p>}
+                            {state.fieldErrors?.mission && <p className="text-sm text-destructive">{state.fieldErrors.mission.join(', ')}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="values">Core Values</Label>
                             <Textarea id="values" name="values" placeholder="e.g., Authenticity, Innovation, Customer-Centricity, Simplicity." required value={formValues.values || ''} onChange={handleInputChange}/>
-                            {state.fieldErrors?.values && <p className="text-sm text-destructive">{state.fieldErrors.values}</p>}
+                            {state.fieldErrors?.values && <p className="text-sm text-destructive">{state.fieldErrors.values.join(', ')}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="vision">Long-Term Vision</Label>

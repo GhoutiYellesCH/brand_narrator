@@ -14,25 +14,8 @@ import {
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
 import { FieldValue } from 'firebase-admin/firestore';
-import { headers } from 'next/headers';
 
 const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
-
-async function getUserIdFromServerSession(): Promise<string | null> {
-    const authorization = headers().get('Authorization');
-    if (authorization?.startsWith('Bearer ')) {
-      const idToken = authorization.split('Bearer ')[1];
-      try {
-        const decodedToken = await adminAuth.verifyIdToken(idToken);
-        return decodedToken.uid;
-      } catch (error) {
-        console.error('Error verifying auth token:', error);
-        return null;
-      }
-    }
-    return null;
-}
-
 
 async function checkAndDeductTokens(userId: string, amount: number, details: { chatMessageCount?: number } = {}): Promise<void> {
   const userRef = serverFirestore.doc(`users/${userId}`);
@@ -49,13 +32,11 @@ async function checkAndDeductTokens(userId: string, amount: number, details: { c
 
     // For interactive chat, 1 token is deducted every 10 messages
     if (details.chatMessageCount !== undefined) {
-      const newTotalMessages = (userData.chatMessagesSent || 0) + 1;
-      if ((newTotalMessages % 10 === 0) && newTotalMessages > 0) {
+      if ((details.chatMessageCount > 0) && (details.chatMessageCount % 10 === 0)) {
         cost = 1;
       } else {
         cost = 0;
       }
-      transaction.update(userRef, { chatMessagesSent: FieldValue.increment(1) });
     }
 
     if (userData.tokens < cost) {
@@ -74,9 +55,9 @@ export async function getAiStoryResponse(
   userInput: string,
   conversationHistory: string,
   brandStoryId: string,
-  chatMessageCount: number
+  chatMessageCount: number,
+  userId: string,
 ) {
-  const userId = await getUserIdFromServerSession();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -101,9 +82,11 @@ export async function getAiStoryResponse(
     }).catch(
       (e) => console.error('Failed to save conversation history:', e)
     );
-
+    if(chatMessageCount > 0 && chatMessageCount % 10 === 0) {
+        revalidatePath('/dashboard');
+    }
     revalidatePath('/story-gathering');
-    revalidatePath('/dashboard');
+
     return {
       aiResponse: response.aiResponse,
       updatedConversationHistory: response.updatedConversationHistory,
@@ -142,19 +125,14 @@ const BrandStoryFormSchema = z.object({
   differentiation: z.string().optional(),
   storyConversation: z.string().optional(),
   additionalInfo: z.string().optional(),
-  brandStoryId: z.string(), // To know which document to update
+  brandStoryId: z.string(),
+  userId: z.string(),
 });
 
 export async function generateBrandStoryAction(
   prevState: BrandStoryState,
   formData: FormData
 ): Promise<BrandStoryState> {
-  const userId = await getUserIdFromServerSession();
-
-  if (!userId) {
-    return { error: 'You must be logged in to use this feature.' };
-  }
-
   const validatedFields = BrandStoryFormSchema.safeParse(
     Object.fromEntries(formData.entries())
   );
@@ -164,11 +142,16 @@ export async function generateBrandStoryAction(
       fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
   }
+  
+  const { userId, brandStoryId, ...input } = validatedFields.data;
+
+  if (!userId) {
+    return { error: 'You must be logged in to use this feature.' };
+  }
 
   try {
     await checkAndDeductTokens(userId, 10);
 
-    const { brandStoryId, ...input } = validatedFields.data;
     const result = await generateBrandStory(input as GenerateBrandStoryInput);
 
     const storyRef = serverFirestore.doc(`users/${userId}/brandStories/${brandStoryId}`);
@@ -210,29 +193,28 @@ const PromptGeneratorFormSchema = z.object({
   targetAudience: z.string().min(3, 'Target audience is required.'),
   contentGoal: z.string().min(3, 'Content goal is required.'),
   platform: z.string().min(3, 'AI Platform is required.'),
+  userId: z.string(),
 });
 
 export async function generateAiPromptsAction(
   prevState: PromptGeneratorState,
   formData: FormData
 ): Promise<PromptGeneratorState> {
-  const userId = await getUserIdFromServerSession();
 
-  if (!userId) {
-    return { error: 'You must be logged in to use this feature.' };
-  }
-
-  const validatedFields = PromptGeneratorFormSchema.safeParse({
-    brandDescription: formData.get('brandDescription'),
-    targetAudience: formData.get('targetAudience'),
-    contentGoal: formData.get('contentGoal'),
-    platform: formData.get('platform'),
-  });
+  const validatedFields = PromptGeneratorFormSchema.safeParse(
+    Object.fromEntries(formData.entries())
+  );
 
   if (!validatedFields.success) {
     return {
       fieldErrors: validatedFields.error.flatten().fieldErrors,
     };
+  }
+
+  const { userId, ...inputData } = validatedFields.data;
+
+  if (!userId) {
+    return { error: 'You must be logged in to use this feature.' };
   }
 
   try {
@@ -243,8 +225,8 @@ export async function generateAiPromptsAction(
     const brandStoryData = brandStorySnap.data();
 
     const input: GenerateAiPromptsInput = {
-      ...validatedFields.data,
-      brandDescription: brandStoryData?.content || validatedFields.data.brandDescription,
+      ...inputData,
+      brandDescription: brandStoryData?.content || inputData.brandDescription,
     };
 
     const result = await generateAiPrompts(input);
@@ -261,28 +243,28 @@ const CreateInvoiceSchema = z.object({
   price: z.number(),
   packageName: z.string(),
   tokens: z.number(),
+  userId: z.string(),
 });
 
 export async function createNowPaymentsInvoice(
   formData: FormData
 ): Promise<{ invoiceUrl?: string; error?: string }> {
-  const userId = await getUserIdFromServerSession();
-  
-  if (!userId) {
-    return { error: 'You must be logged in to create an invoice.' };
-  }
-
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
     packageName: formData.get('packageName') as string,
     tokens: parseInt(formData.get('tokens') as string, 10),
+    userId: formData.get('userId') as string,
   });
 
   if (!validatedFields.success) {
     return { error: 'Invalid invoice data.' };
   }
+  
+  const { userId, price, packageName, tokens } = validatedFields.data;
 
-  const { price, packageName, tokens } = validatedFields.data;
+  if (!userId) {
+    return { error: 'You must be logged in to create an invoice.' };
+  }
 
   const apiKey = process.env.NOWPAYMENTS_API_KEY;
 
@@ -359,12 +341,6 @@ export async function updateUserProfileAction(
   prevState: UserProfileState,
   formData: FormData
 ): Promise<UserProfileState> {
-  const sessionUserId = await getUserIdFromServerSession();
-
-  if (!sessionUserId) {
-    return { error: 'You are not authorized to perform this action.' };
-  }
-
   const validatedFields = UserProfileFormSchema.safeParse({
     name: formData.get('name'),
     userId: formData.get('userId'),
@@ -378,8 +354,8 @@ export async function updateUserProfileAction(
   
   const { name, userId } = validatedFields.data;
 
-  if (sessionUserId !== userId) {
-    return { error: 'You are not authorized to update this profile.' };
+  if (!userId) {
+    return { error: 'You are not authorized to perform this action.' };
   }
   
   try {
@@ -420,12 +396,6 @@ export async function changePasswordAction(
     prevState: PasswordChangeState,
     formData: FormData
 ): Promise<PasswordChangeState> {
-    const sessionUserId = await getUserIdFromServerSession();
-
-    if (!sessionUserId) {
-        return { error: 'You are not authorized to perform this action.' };
-    }
-
     const validatedFields = PasswordChangeFormSchema.safeParse(
         Object.fromEntries(formData.entries())
     );
@@ -438,8 +408,8 @@ export async function changePasswordAction(
 
     const { password, userId } = validatedFields.data;
     
-    if (sessionUserId !== userId) {
-        return { error: 'You are not authorized to change this password.' };
+    if (!userId) {
+        return { error: 'You are not authorized to perform this action.' };
     }
 
     try {
@@ -457,5 +427,3 @@ export async function changePasswordAction(
         return { error: 'Failed to change password. Please try again.' };
     }
 }
-
-    

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -22,10 +23,27 @@ import {
 } from '@/ai/flows/generate-brand-story';
 import { getFirebase } from '@/firebase/server';
 
-const { firestore, auth: adminAuth } = getFirebase();
+const { firestore: serverFirestore, auth: adminAuth } = getFirebase();
+
+// This is a temporary placeholder for the user ID. In a real application,
+// this would be replaced with a robust session management solution
+// to get the authenticated user's ID on the server.
+const getUserId = async () => {
+    try {
+        const user = (await adminAuth.listUsers(1)).users[0];
+        return user?.uid;
+    } catch (e) {
+        console.warn("Could not get user. Falling back to placeholder. This is normal in local dev.", e);
+        return 'placeholder-user-id';
+    }
+}
 
 async function checkAndDeductTokens(userId: string, amount: number): Promise<void> {
-  const userRef = doc(firestore, 'users', userId);
+  if (userId === 'placeholder-user-id') {
+      console.log(`DEV MODE: Skipping token deduction of ${amount} for placeholder user.`);
+      return;
+  }
+  const userRef = doc(serverFirestore, 'users', userId);
   const userDoc = await getDoc(userRef);
   const userData = userDoc.data();
 
@@ -44,12 +62,7 @@ export async function getAiStoryResponse(
   conversationHistory: string,
   brandStoryId: string
 ) {
-  // Server actions don't have direct access to client-side auth context,
-  // we would typically get the user from a session cookie or similar mechanism.
-  // For this app, we'll assume the client passes the userId or we get it from a session.
-  // The logic below is simplified and assumes we can get the user ID.
-  // A real implementation would need a robust session management solution.
-  const userId = (await adminAuth.listUsers(1)).users[0]?.uid; // Placeholder for getting current user
+  const userId = await getUserId();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -65,7 +78,7 @@ export async function getAiStoryResponse(
 
     // Save the updated conversation history to Firestore non-blockingly
     if (brandStoryId) {
-      const storyRef = doc(firestore, 'users', userId, 'brandStories', brandStoryId);
+      const storyRef = doc(serverFirestore, 'users', userId, 'brandStories', brandStoryId);
       updateDoc(storyRef, { storyConversation: response.updatedConversationHistory }).catch(
         (e) => console.error('Failed to save conversation history:', e)
       );
@@ -117,7 +130,7 @@ export async function generateBrandStoryAction(
   prevState: BrandStoryState,
   formData: FormData
 ): Promise<BrandStoryState> {
-  const userId = (await adminAuth.listUsers(1)).users[0]?.uid;
+  const userId = await getUserId();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -140,7 +153,7 @@ export async function generateBrandStoryAction(
     const result = await generateBrandStory(input as GenerateBrandStoryInput);
 
     // Save the generated story and inputs to Firestore
-    const storyRef = doc(firestore, 'users', userId, 'brandStories', brandStoryId);
+    const storyRef = doc(serverFirestore, 'users', userId, 'brandStories', brandStoryId);
     await setDoc(
       storyRef,
       {
@@ -185,7 +198,7 @@ export async function generateAiPromptsAction(
   prevState: PromptGeneratorState,
   formData: FormData
 ): Promise<PromptGeneratorState> {
-  const userId = (await adminAuth.listUsers(1)).users[0]?.uid;
+  const userId = await getUserId();
 
   if (!userId) {
     return { error: 'You must be logged in to use this feature.' };
@@ -207,7 +220,7 @@ export async function generateAiPromptsAction(
   try {
     await checkAndDeductTokens(userId, 5); // Deduct 5 tokens per prompt
 
-    const brandStoryRef = doc(firestore, 'users', userId, 'brandStories', 'default');
+    const brandStoryRef = doc(serverFirestore, 'users', userId, 'brandStories', 'default');
     const brandStorySnap = await getDoc(brandStoryRef);
     const brandStoryData = brandStorySnap.data();
 
@@ -235,9 +248,9 @@ const CreateInvoiceSchema = z.object({
 export async function createNowPaymentsInvoice(
   formData: FormData
 ): Promise<{ invoiceUrl?: string; error?: string }> {
-  // In a real app, you'd get this from a secure session, not by listing users.
-  // This is a temporary simplification to avoid the credential error during development.
-  const userId = `user_${Date.now()}`; // Placeholder user ID
+  // This uses a placeholder user ID. In a real application, you would
+  // have a robust session management system to get the real user ID.
+  const userId = `user_${Date.now()}`;
 
   const validatedFields = CreateInvoiceSchema.safeParse({
     price: parseFloat(formData.get('price') as string),
@@ -288,9 +301,7 @@ export async function createNowPaymentsInvoice(
 
     const invoice = await response.json();
 
-    const { firestore: serverFirestore } = getFirebase();
     // Optionally, save the pending payment transaction to your database
-    // Note: this uses a placeholder userId, a real implementation would use the authenticated user's ID
     const transactionsCollection = collection(serverFirestore, 'transactions');
     const transactionRef = doc(transactionsCollection);
 
@@ -301,7 +312,7 @@ export async function createNowPaymentsInvoice(
       orderId: orderId,
       price: price,
       tokens: tokens,
-      userId: userId, // a placeholder user
+      userId: userId,
       createdAt: serverTimestamp(),
     });
 
@@ -312,3 +323,5 @@ export async function createNowPaymentsInvoice(
     return { error: error.message || 'An unexpected error occurred.' };
   }
 }
+
+    

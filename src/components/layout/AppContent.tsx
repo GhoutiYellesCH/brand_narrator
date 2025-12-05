@@ -14,6 +14,7 @@ import {
   LogOut,
   CreditCard,
   User as UserIcon,
+  Diamond,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getAuth, signOut as clientSignOut, type User } from 'firebase/auth';

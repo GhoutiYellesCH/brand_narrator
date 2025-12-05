@@ -1,15 +1,17 @@
 
-import { getApps, initializeApp, getApp, App } from 'firebase-admin/app';
+import { getApps, initializeApp as initializeAdminApp, getApp, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseConfig } from './config';
-import { getAuth as getClientAuth, initializeApp as initializeClientApp } from 'firebase/auth';
+import { getAuth as getClientAuth } from 'firebase/auth';
+import { initializeApp as initializeClientApp } from 'firebase/app';
+
 
 // This is a server-side only file.
 
 let adminApp: App;
 
 if (getApps().length === 0) {
-  adminApp = initializeApp({
+  adminApp = initializeAdminApp({
     projectId: firebaseConfig.projectId,
   });
 } else {

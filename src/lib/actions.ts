@@ -320,8 +320,6 @@ export async function createNowPaymentsInvoice(
 
     const invoice = await response.json();
     
-    // Temporarily disabled to unblock development.
-    // This can be re-enabled once server auth is fully configured.
     // try {
     //   const transactionRef = serverFirestore.collection('users').doc(userId).collection('paymentTransactions').doc(invoice.id);
     //   await transactionRef.set({
@@ -361,6 +359,12 @@ export async function updateUserProfileAction(
   prevState: UserProfileState,
   formData: FormData
 ): Promise<UserProfileState> {
+  const sessionUserId = await getUserIdFromServerSession();
+
+  if (!sessionUserId) {
+    return { error: 'You are not authorized to perform this action.' };
+  }
+
   const validatedFields = UserProfileFormSchema.safeParse({
     name: formData.get('name'),
     userId: formData.get('userId'),
@@ -374,8 +378,8 @@ export async function updateUserProfileAction(
   
   const { name, userId } = validatedFields.data;
 
-  if (!userId || userId === 'null' || userId === 'undefined') {
-    return { error: 'You must be logged in to update your profile.' };
+  if (sessionUserId !== userId) {
+    return { error: 'You are not authorized to update this profile.' };
   }
   
   try {
@@ -416,6 +420,12 @@ export async function changePasswordAction(
     prevState: PasswordChangeState,
     formData: FormData
 ): Promise<PasswordChangeState> {
+    const sessionUserId = await getUserIdFromServerSession();
+
+    if (!sessionUserId) {
+        return { error: 'You are not authorized to perform this action.' };
+    }
+
     const validatedFields = PasswordChangeFormSchema.safeParse(
         Object.fromEntries(formData.entries())
     );
@@ -427,6 +437,10 @@ export async function changePasswordAction(
     }
 
     const { password, userId } = validatedFields.data;
+    
+    if (sessionUserId !== userId) {
+        return { error: 'You are not authorized to change this password.' };
+    }
 
     try {
         await adminAuth.updateUser(userId, {
@@ -443,3 +457,5 @@ export async function changePasswordAction(
         return { error: 'Failed to change password. Please try again.' };
     }
 }
+
+    

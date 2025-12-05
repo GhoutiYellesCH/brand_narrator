@@ -9,7 +9,6 @@ import {
   BookHeart,
   CalendarDays,
   Sparkles,
-  BarChart3,
   Home,
   LogOut,
   CreditCard,
@@ -74,9 +73,6 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
               </SidebarNavItem>
               <SidebarNavItem href="/prompt-generator" icon={<Sparkles />}>
                 Prompt Generator
-              </SidebarNavItem>
-              <SidebarNavItem href="/analytics" icon={<BarChart3 />}>
-                Analytics
               </SidebarNavItem>
               <SidebarNavItem href="/pricing" icon={<CreditCard />}>
                 Pricing

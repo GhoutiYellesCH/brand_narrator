@@ -1,7 +1,8 @@
+
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import { Sidebar, SidebarProvider, SidebarBody, SidebarNav, SidebarNavItem, SidebarHeader, SidebarTrigger, SidebarContent, SidebarFooter } from '@/components/layout/sidebar';
 import { Logo } from '@/components/logo';
 import {
@@ -14,35 +15,53 @@ import {
   User as UserIcon,
   Diamond,
   CalendarDays,
-  Link as LinkIcon, // Renamed to avoid conflict with Next.js Link
+  Link as LinkIcon,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useEffect } from 'react';
+import { useUser } from '@/firebase/auth/use-user';
+import { useFirestore } from '@/firebase/provider';
+import { doc } from 'firebase/firestore';
+import { useDoc } from '@/firebase/firestore/use-doc';
+import { Skeleton } from '../ui/skeleton';
+import { UserProfile } from '@/lib/definitions';
 
 const publicRoutes = ['/login', '/'];
 
 export default function AppContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const isUserLoading = status === 'loading';
-  const user = session?.user;
+  const { user, isLoading: isUserLoading, isAuthenticated } = useUser();
+  const firestore = useFirestore();
+
+  const userProfileRef = user ? doc(firestore, 'users', user.uid) : null;
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   useEffect(() => {
-    if (status === 'unauthenticated' && !publicRoutes.includes(pathname)) {
+    if (!isUserLoading && !isAuthenticated && !publicRoutes.includes(pathname)) {
       router.push('/login');
     }
-  }, [status, pathname, router]);
+  }, [isUserLoading, isAuthenticated, pathname, router]);
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: '/login' });
   };
   
-  if (publicRoutes.includes(pathname) || status === 'unauthenticated') {
+  if (publicRoutes.includes(pathname) && (!isAuthenticated || isUserLoading)) {
+    if (isUserLoading) {
+        return (
+            <div className="flex h-screen w-screen items-center justify-center bg-background">
+              <div className="flex flex-col items-center gap-4 animate-pulse">
+                <Logo />
+              </div>
+            </div>
+          );
+    }
     return <>{children}</>;
   }
 
-  if (isUserLoading) {
+
+  if (isUserLoading || (isAuthenticated && isProfileLoading)) {
     return (
         <div className="flex h-screen w-screen items-center justify-center bg-background">
           <div className="flex flex-col items-center gap-4 animate-pulse">
@@ -92,7 +111,7 @@ export default function AppContent({ children }: { children: React.ReactNode }) 
                     <div className="font-semibold text-foreground">Your AI Tokens</div>
                     <div className="flex items-center gap-2 text-2xl font-bold text-primary">
                         <Diamond className="h-6 w-6" />
-                        <span>100</span>
+                        {isProfileLoading ? <Skeleton className="h-8 w-16"/> : <span>{userProfile?.tokens ?? 0}</span>}
                     </div>
                      <Button size="sm" variant="secondary" onClick={() => router.push('/pricing')}>
                         Buy More

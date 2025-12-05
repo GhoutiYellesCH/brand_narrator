@@ -1,9 +1,38 @@
 
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import { getFirebase } from '@/firebase/server';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInAnonymously, getAuth } from 'firebase/auth';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { UserProfile } from '@/lib/definitions';
 
-// This is a simplified NextAuth configuration that uses a dummy user
-// for demonstration purposes, completely independent of Firebase Authentication.
+// This is a server-side only file.
+
+// Helper function to get or create a user profile in Firestore
+async function getOrCreateUserProfile(userId: string, email: string | null, name: string | null): Promise<UserProfile | undefined> {
+    const { firestore } = getFirebase();
+    const userRef = firestore.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+
+    if (userDoc.exists) {
+        return userDoc.data() as UserProfile;
+    } else {
+        const newUserProfile: UserProfile = {
+            id: userId,
+            email: email || '',
+            name: name || 'Anonymous User',
+            createdAt: FieldValue.serverTimestamp(),
+            lastLogin: FieldValue.serverTimestamp(),
+            tokens: 100, // Initial token allocation
+        };
+        await userRef.set(newUserProfile);
+        const newDoc = await userRef.get();
+        return newDoc.data() as UserProfile;
+    }
+}
+
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -19,17 +48,40 @@ export const authOptions: NextAuthOptions = {
         if (!credentials) {
           throw new Error("Something went wrong.");
         }
-        
-        // For demonstration, we'll accept any email/password and return a dummy user.
-        // In a real application, you would validate against your database here.
-        const dummyUser = {
-          id: 'dummy-user-id-123',
-          name: credentials.isAnonymous === 'true' ? 'Anonymous Guest' : 'Test User',
-          email: credentials.isAnonymous === 'true' ? 'guest@example.com' : credentials.email,
-        };
 
-        console.log(`Authorizing user: ${dummyUser.email}`);
-        return dummyUser;
+        // We need a temporary client auth instance on the server to do this.
+        const clientApps = getApps().filter(app => app.name === 'client-auth-temp');
+        const clientApp = clientApps.length > 0 ? clientApps[0] : initializeApp(firebaseConfig, 'client-auth-temp');
+        const clientAuth = getAuth(clientApp);
+        
+        try {
+            let userCredential;
+            if (credentials.isAnonymous === 'true') {
+                userCredential = await signInAnonymously(clientAuth);
+            } else if (credentials.isSignUp === 'true') {
+                userCredential = await createUserWithEmailAndPassword(clientAuth, credentials.email, credentials.password);
+            } else {
+                userCredential = await signInWithEmailAndPassword(clientAuth, credentials.email, credentials.password);
+            }
+
+            if (userCredential.user) {
+                const profile = await getOrCreateUserProfile(userCredential.user.uid, userCredential.user.email, userCredential.user.displayName);
+                
+                if (!profile) {
+                    throw new Error('Could not create or retrieve user profile.');
+                }
+
+                return { 
+                    id: userCredential.user.uid, 
+                    email: profile.email,
+                    name: profile.name,
+                };
+            }
+            return null;
+        } catch (error: any) {
+            // Firebase Auth errors (e.g., wrong password, user not found)
+            throw new Error(error.message || "Authentication failed.");
+        }
       },
     }),
   ],

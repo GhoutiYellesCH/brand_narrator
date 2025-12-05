@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -9,6 +10,8 @@ import {
   QuerySnapshot,
   CollectionReference,
 } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -83,8 +86,12 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (error: FirestoreError) => {
-        console.error("Error in useCollection snapshot:", error);
-        setError(error);
+        const permissionError = new FirestorePermissionError({
+          path: (memoizedTargetRefOrQuery as InternalQuery)._query.path.canonicalString(),
+          operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setError(permissionError);
         setData(null);
         setIsLoading(false);
       }

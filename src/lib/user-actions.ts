@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -5,8 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { getFirebase } from '@/firebase/server';
 import { auth as nextAuth } from '@/app/api/auth/[...nextauth]/route';
 
-// Note: This file now uses a mock implementation.
-// In a real application, you would replace this with actual database calls.
+const { firestore: serverFirestore } = getFirebase();
 
 async function getUserIdFromServerSession(): Promise<string | null> {
     try {
@@ -31,20 +31,19 @@ export type UserProfileState = z.infer<typeof UserProfileStateSchema>;
 
 const UserProfileFormSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters.'),
+  userId: z.string(),
 });
 
 export async function updateUserProfileAction(
   prevState: UserProfileState,
   formData: FormData
 ): Promise<UserProfileState> {
-  const userId = await getUserIdFromServerSession();
-  if (!userId) {
+  const sessionUserId = await getUserIdFromServerSession();
+  if (!sessionUserId) {
     return { error: 'You are not authorized to perform this action.' };
   }
 
-  const validatedFields = UserProfileFormSchema.safeParse({
-    name: formData.get('name'),
-  });
+  const validatedFields = UserProfileFormSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
     return {
@@ -52,20 +51,16 @@ export async function updateUserProfileAction(
     };
   }
   
-  const { name } = validatedFields.data;
+  const { name, userId } = validatedFields.data;
 
-  const submittedUserId = formData.get('userId') as string;
-  if (userId !== submittedUserId) {
+  if (sessionUserId !== userId) {
     return { error: 'Unauthorized action. User ID mismatch.' };
   }
   
   try {
-    // In a real application, you would update the user's name in your database here.
-    // For now, we'll just log it to the server console.
-    console.log(`Updating name for user ${userId} to: ${name}`);
+    const userRef = serverFirestore.collection('users').doc(userId);
+    await userRef.update({ name });
     
-    // We revalidate paths to simulate data being updated, which can be useful
-    // if you add a real database later.
     revalidatePath('/account');
     revalidatePath('/dashboard');
     return { success: true };
